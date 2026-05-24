@@ -1,31 +1,35 @@
 import { useCurrentDay } from "../features/day/hooks/useCurrentDay";
 import { useDayWorkspace } from "../features/day/hooks/useDayWorkspace";
-import { CanvasView } from "../features/canvas/components/CanvasView";
+import { TimelineCanvasSurface } from "../features/timeline/components/TimelineCanvasSurface";
+import { useResolvedTimelineTheme } from "../features/timeline/hooks/useResolvedTimelineTheme";
 
 export function CanvasPage() {
   const date = useCurrentDay();
   const { error, isLoading, workspace } = useDayWorkspace(date);
+  const {
+    error: themeError,
+    isLoading: isThemeLoading,
+    theme,
+  } = useResolvedTimelineTheme();
 
   return (
-    <section className="mx-auto flex w-full max-w-7xl flex-col">
-      <header className="mb-5">
-        <h1 className="text-4xl font-semibold tracking-normal text-ink sm:text-5xl">思维画布</h1>
-        <p className="mt-3 text-sm font-medium text-moss">{date}</p>
-        <p className="mt-3 max-w-2xl text-base leading-7 text-muted">
-          把想法、计划和待办放到同一个空间里。手机上适合查看和轻量调整，复杂连线更适合回到桌面端完成。
-        </p>
-      </header>
+    <section className="relative min-h-dvh w-full">
       {error ? (
-        <p className="mb-5 rounded-2xl border border-ember/25 bg-ember/10 px-4 py-3 text-sm text-ember">
+        <p className="absolute left-5 right-20 top-20 z-[60] rounded-2xl border border-ember/25 bg-white/70 px-4 py-3 text-sm text-ember shadow-glass backdrop-blur-[28px] md:left-8 md:right-auto md:max-w-xl">
           {error}
         </p>
       ) : null}
-      {isLoading ? (
-        <div className="rounded-[2rem] border border-line bg-white/45 px-6 py-12 text-center text-sm text-muted shadow-soft">
+      {themeError ? (
+        <p className="absolute left-5 right-20 top-32 z-[60] rounded-2xl border border-ember/25 bg-white/70 px-4 py-3 text-sm text-ember shadow-glass backdrop-blur-[28px] md:left-8 md:right-auto md:max-w-xl">
+          主题加载失败，已使用默认主题：{themeError}
+        </p>
+      ) : null}
+      {isLoading || isThemeLoading ? (
+        <div className="grid min-h-dvh place-items-center bg-surface text-sm text-muted">
           正在准备当天工作区。
         </div>
       ) : (
-        <CanvasView workspace={workspace} />
+        <TimelineCanvasSurface entryMode="canvas" themeConfig={theme} workspace={workspace} />
       )}
     </section>
   );

@@ -57,6 +57,12 @@ export async function updateCardPosition(
   });
 }
 
+export async function updateCanvasCardContent(cardId: CardId, content: string): Promise<Card> {
+  return updateCard(cardId, {
+    content: content.trim(),
+  });
+}
+
 export async function deleteCanvasCard(cardId: CardId, workspace: DayWorkspace): Promise<void> {
   await removeByCardIdAndDayId(cardId, workspace.id);
   await deleteCard(cardId);

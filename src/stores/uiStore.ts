@@ -10,6 +10,7 @@ type UiStore = {
   isCommandOpen: boolean;
   isMobileNavOpen: boolean;
   isQuickCaptureOpen: boolean;
+  isTimelineCanvasChromeVisible: boolean;
   themeMode: ThemeMode;
   viewportKind: ViewportKind;
   setActiveSurface: (surface: ActiveSurface) => void;
@@ -18,6 +19,7 @@ type UiStore = {
   setCommandOpen: (isOpen: boolean) => void;
   setMobileNavOpen: (isOpen: boolean) => void;
   setQuickCaptureOpen: (isOpen: boolean) => void;
+  setTimelineCanvasChromeVisible: (isVisible: boolean) => void;
   setViewportKind: (kind: ViewportKind) => void;
 };
 
@@ -27,6 +29,7 @@ export const useUiStore = create<UiStore>((set) => ({
   isCommandOpen: false,
   isMobileNavOpen: false,
   isQuickCaptureOpen: false,
+  isTimelineCanvasChromeVisible: true,
   themeMode: "system",
   viewportKind: "desktop",
   setActiveSurface: (activeSurface) => set({ activeSurface }),
@@ -35,5 +38,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setCommandOpen: (isCommandOpen) => set({ isCommandOpen }),
   setMobileNavOpen: (isMobileNavOpen) => set({ isMobileNavOpen }),
   setQuickCaptureOpen: (isQuickCaptureOpen) => set({ isQuickCaptureOpen }),
+  setTimelineCanvasChromeVisible: (isTimelineCanvasChromeVisible) =>
+    set({ isTimelineCanvasChromeVisible }),
   setViewportKind: (viewportKind) => set({ viewportKind }),
 }));

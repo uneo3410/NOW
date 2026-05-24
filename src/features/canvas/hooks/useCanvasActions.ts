@@ -13,6 +13,7 @@ import {
   deleteCanvasCard,
   deleteCanvasEdge,
   loadCanvasByDay,
+  updateCanvasCardContent,
   updateCardPosition,
 } from "../services/canvasService";
 import type { CanvasPosition } from "../types";
@@ -91,6 +92,23 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
       return card;
     },
     [updateCard],
+  );
+
+  const updateCardContent = useCallback(
+    async (cardId: CardId, content: string) => {
+      const nextContent = content.trim();
+
+      if (!nextContent) {
+        setError("卡片内容不能为空。");
+        return null;
+      }
+
+      setError(null);
+      const card = await updateCanvasCardContent(cardId, nextContent);
+      updateCard(cardId, card);
+      return card;
+    },
+    [setError, updateCard],
   );
 
   const deleteCard = useCallback(
@@ -221,6 +239,7 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
     selectedCardId,
     selectedEdgeId,
     saveViewport,
+    updateCardContent,
     viewport,
   };
 }

@@ -26,11 +26,11 @@ export function MobileLayout({
 }: MobileLayoutProps) {
   const isQuickCaptureOpen = useUiStore((state) => state.isQuickCaptureOpen);
   const setQuickCaptureOpen = useUiStore((state) => state.setQuickCaptureOpen);
-  const isTimeline = activeSurface === "timeline";
+  const isImmersiveSurface = activeSurface === "timeline" || activeSurface === "canvas";
 
   return (
     <div className="min-h-dvh bg-surface text-ink">
-      {isTimeline ? null : (
+      {isImmersiveSurface ? null : (
         <header className="sticky top-0 z-30 border-b border-line bg-surface/90 px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur">
           <a className="text-lg font-semibold text-ink" href="/">
             Now
@@ -39,7 +39,7 @@ export function MobileLayout({
         </header>
       )}
 
-      <main className={isTimeline ? "min-h-dvh min-w-0" : "min-w-0 px-4 pb-28 pt-5"}>
+      <main className={isImmersiveSurface ? "min-h-dvh min-w-0" : "min-w-0 px-4 pb-28 pt-5"}>
         {children}
       </main>
 
@@ -62,7 +62,7 @@ export function MobileLayout({
       <nav
         className={[
           "fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/92 px-3 pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2 backdrop-blur",
-          isTimeline ? "hidden" : "",
+          isImmersiveSurface ? "hidden" : "",
         ].join(" ")}
       >
         <div className="mx-auto grid max-w-md grid-cols-5 gap-2">

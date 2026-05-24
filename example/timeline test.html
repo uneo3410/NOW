@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Now Timeline</title>
+<!-- Fonts & Icons -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001945",
+                        "on-primary-container": "#fefcff",
+                        "background": "#f7f9fb",
+                        "primary-fixed-dim": "#b0c6ff",
+                        "on-surface-variant": "#424655",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary": "#ffffff",
+                        "outline": "#727787",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary": "#0056c6",
+                        "tertiary-fixed": "#e1e0ff",
+                        "surface-tint": "#0058cb",
+                        "primary-fixed": "#d9e2ff",
+                        "secondary-container": "#00e3fd",
+                        "on-tertiary-fixed": "#07006c",
+                        "on-secondary-fixed": "#001f24",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-dim": "#d8dadc",
+                        "tertiary": "#4648d4",
+                        "inverse-surface": "#2d3133",
+                        "inverse-primary": "#b0c6ff",
+                        "secondary": "#006875",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#9cf0ff",
+                        "tertiary-container": "#6063ee",
+                        "error": "#ba1a1a",
+                        "on-surface": "#191c1e",
+                        "tertiary-fixed-dim": "#c0c1ff",
+                        "on-background": "#191c1e",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e0e3e5",
+                        "on-tertiary-container": "#fffbff",
+                        "primary-container": "#006df8",
+                        "outline-variant": "#c2c6d8",
+                        "surface": "#f7f9fb",
+                        "surface-container": "#eceef0",
+                        "secondary-fixed-dim": "#00daf3",
+                        "on-secondary-fixed-variant": "#004f58",
+                        "on-secondary-container": "#00616d",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-primary-fixed-variant": "#00429c",
+                        "on-tertiary-fixed-variant": "#2f2ebe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "8px",
+                        "margin-mobile": "20px",
+                        "margin-desktop": "64px",
+                        "stack-md": "24px",
+                        "gutter": "24px",
+                        "container-max": "1440px",
+                        "stack-sm": "12px",
+                        "stack-lg": "48px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "display-xl": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "1", "letterSpacing": "0.08em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "500" }],
+                        "display-xl": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "300" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "letterSpacing": "0em", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+  @keyframes drift {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    25% { transform: translateY(-20px) translateX(10px); }
+    50% { transform: translateY(-10px) translateX(20px); }
+    75% { transform: translateY(10px) translateX(-10px); }
+  }
+  .animate-drift {
+    animation: drift 15s ease-in-out infinite;
+  }
+  .animate-drift-slow {
+    animation: drift 25s ease-in-out infinite;
+  }
+  .animate-drift-reverse {
+    animation: drift 20s ease-in-out infinite reverse;
+  }
+  
+  /* Particle Canvas */
+  #particle-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+  }
+  
+  /* Zoom/Pan Container */
+  #zoom-container {
+    transform-origin: center center;
+    transition: transform 0.1s ease-out;
+    will-change: transform;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+  #zoom-container:active {
+    cursor: grabbing;
+  }
+</style></head>
+<body class="bg-surface-container-lowest text-on-surface overflow-hidden min-h-screen relative font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed" id="body-wrapper">
+<canvas id="particle-canvas"></canvas>
+<!-- Zoom Controls -->
+<div class="fixed bottom-8 right-8 z-50 flex flex-col gap-2 bg-white/40 backdrop-blur-md p-2 rounded-full border border-white/60 shadow-lg">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/60 transition-colors" id="zoom-in">
+<span class="material-symbols-outlined">zoom_in</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/60 transition-colors" id="zoom-reset">
+<span class="material-symbols-outlined">restart_alt</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/60 transition-colors" id="zoom-out">
+<span class="material-symbols-outlined">zoom_out</span>
+</button>
+</div>
+<!-- Atmospheric Particles Layer -->
+<div class="fixed inset-0 z-0 pointer-events-none">
+<div class="absolute top-[10%] left-[45%] w-1.5 h-1.5 rounded-full bg-secondary-container blur-[1px] opacity-60 shadow-[0_0_8px_rgba(0,227,253,0.8)]"></div>
+<div class="absolute top-[35%] left-[25%] w-2 h-2 rounded-full bg-primary-fixed blur-[2px] opacity-40"></div>
+<div class="absolute top-[65%] left-[75%] w-1 h-1 rounded-full bg-secondary-container blur-[0.5px] opacity-70 shadow-[0_0_6px_rgba(0,227,253,0.5)]"></div>
+<div class="absolute top-[80%] left-[35%] w-2.5 h-2.5 rounded-full bg-primary-container blur-[3px] opacity-20"></div>
+<div class="absolute top-[20%] left-[80%] w-1.5 h-1.5 rounded-full bg-secondary-container blur-[1px] opacity-50"></div>
+</div><div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+<div class="absolute top-[15%] left-[10%] w-3 h-3 rounded-full bg-white opacity-40 blur-[1px] animate-drift"></div>
+<div class="absolute top-[45%] left-[85%] w-2 h-2 rounded-full bg-white opacity-30 blur-[1px] animate-drift-slow"></div>
+<div class="absolute top-[75%] left-[15%] w-4 h-4 rounded-full bg-white opacity-20 blur-[2px] animate-drift-reverse"></div>
+<div class="absolute top-[30%] left-[60%] w-2.5 h-2.5 rounded-full bg-white opacity-25 blur-[1px] animate-drift"></div>
+<div class="absolute top-[85%] left-[70%] w-3.5 h-3.5 rounded-full bg-white opacity-15 blur-[2px] animate-drift-slow"></div>
+<div class="absolute top-[10%] left-[80%] w-2 h-2 rounded-full bg-white opacity-35 blur-[0.5px] animate-drift-reverse"></div>
+</div>
+<!-- Main Spatial Canvas with Zoom/Pan -->
+<div class="relative z-10 w-full h-screen max-w-container-max mx-auto flex" id="main-canvas">
+<div id="zoom-container">
+<!-- Soft Glow Base for Now Anchor -->
+<div class="absolute top-[70%] left-[30%] w-96 h-96 -mt-48 -ml-48 bg-primary-fixed/20 blur-[100px] rounded-full pointer-events-none z-0"></div>
+<div class="absolute top-[70%] left-[30%] w-48 h-48 -mt-24 -ml-24 bg-secondary-container/10 blur-[60px] rounded-full pointer-events-none z-0"></div>
+<!-- The Timeline Beam -->
+<div class="absolute left-[30%] top-0 bottom-0 w-[1px] bg-gradient-to-b from-transparent via-secondary-container to-transparent opacity-90 z-10" style="box-shadow: 0 0 24px 2px rgba(0, 227, 253, 0.4);"></div>
+<!-- Timeline Container Map -->
+<div class="w-full h-full relative z-20">
+<!-- Existing Moment 1 (Past) -->
+<div class="absolute top-[20%] left-[30%] flex items-center w-full max-w-lg transform -translate-y-1/2 group">
+<!-- Timeline Node -->
+<div class="absolute -left-[4px] w-[9px] h-[9px] rounded-full bg-secondary-container/90 ring-[3px] ring-white shadow-[0_0_16px_rgba(0,227,253,0.8)] transition-transform duration-500 group-hover:scale-125"></div>
+<!-- Floating Glass Card -->
+<div class="ml-16 w-full border border-white/60 shadow-[0_12px_40px_rgba(0,104,117,0.04),inset_0_0_0_1px_rgba(255,255,255,0.4)] rounded-xl p-6 transition-all hover:bg-white/70 hover:shadow-[0_16px_48px_rgba(0,104,117,0.08)] hover:-translate-y-1 duration-700 cursor-default backdrop-blur-[40px] bg-white/40">
+<div class="font-label-sm text-label-sm text-secondary tracking-[0.1em] mb-4 opacity-80 uppercase">
+                                2026.04.29 09:12
+                            </div>
+<div class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                                Initiated the primary atmospheric spatial mapping protocol. Resonance steady.
+                            </div>
+</div>
+</div>
+<!-- Existing Moment 2 (Past) -->
+<div class="absolute top-[42%] left-[30%] flex items-center w-full max-w-lg transform -translate-y-1/2 group">
+<!-- Timeline Node -->
+<div class="absolute -left-[4px] w-[9px] h-[9px] rounded-full bg-secondary-container/90 ring-[3px] ring-white shadow-[0_0_16px_rgba(0,227,253,0.8)] transition-transform duration-500 group-hover:scale-125"></div>
+<!-- Floating Glass Card -->
+<div class="ml-16 w-full border border-white/60 shadow-[0_12px_40px_rgba(0,104,117,0.04),inset_0_0_0_1px_rgba(255,255,255,0.4)] rounded-xl p-6 transition-all hover:bg-white/70 hover:shadow-[0_16px_48px_rgba(0,104,117,0.08)] hover:-translate-y-1 duration-700 cursor-default backdrop-blur-[40px] bg-white/40">
+<div class="font-label-sm text-label-sm text-secondary tracking-[0.1em] mb-4 opacity-80 uppercase">
+                                2026.04.29 15:19
+                            </div>
+<div class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                                Crystalline data structure verified. Sector 7 fragments successfully cached into the timeline array.
+                            </div>
+</div>
+</div>
+<!-- NOW Anchor & Input Area -->
+<div class="absolute top-[70%] left-[30%] flex items-center w-full max-w-2xl transform -translate-y-1/2 z-30">
+<!-- Now Spatial Label -->
+<div class="absolute right-[calc(100%+32px)] text-right">
+<span class="font-label-sm text-label-sm text-primary tracking-[0.25em] uppercase opacity-90 drop-shadow-sm">Now</span>
+</div>
+<!-- Pulsing Blue Orb -->
+<div class="absolute -left-[7.5px] w-[16px] h-[16px] rounded-full bg-primary-container ring-[4px] ring-white shadow-[0_0_32px_8px_rgba(0,109,248,0.4)] animate-[pulse_3s_ease-in-out_infinite]"></div>
+<!-- Input Glass Bar -->
+<div class="ml-16 w-full border border-white/60 shadow-[0_16px_56px_rgba(0,104,117,0.06),inset_0_0_0_1px_rgba(255,255,255,0.5)] rounded-full pl-8 pr-3 py-3 flex items-center justify-between group transition-all duration-500 hover:bg-white/80 backdrop-blur-[48px] bg-white/50" id="input-bar">
+<input class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant placeholder:font-light outline-none pointer-events-auto" placeholder="当下发生了什么？" type="text"/>
+<button class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors duration-300 mr-2 hover:bg-white/40 pointer-events-auto" id="time-picker-toggle">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 300; font-size: 20px;">schedule</span>
+</button><button class="w-12 h-12 shrink-0 rounded-full flex items-center justify-center bg-white/60 border border-white shadow-sm hover:bg-white hover:shadow-md hover:text-primary-container transition-all duration-300 text-primary group-hover:scale-[1.03] border-opacity-40 pointer-events-auto">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 300;">send</span>
+</button>
+</div><div class="hidden absolute top-[calc(100%+12px)] left-0 w-64 bg-white/40 backdrop-blur-[40px] border border-white/60 rounded-xl shadow-[0_16px_56px_rgba(0,104,117,0.08)] p-4 z-50 transform transition-all duration-300 pointer-events-auto" id="time-picker-dropdown">
+<div class="text-label-sm text-secondary tracking-[0.1em] mb-3 uppercase opacity-80">Set Moment Time</div>
+<div class="flex items-center justify-between gap-2">
+<div class="flex-1 flex flex-col items-center">
+<span class="text-label-sm text-outline-variant mb-1 uppercase">Hours</span>
+<div class="w-full py-2 bg-white/40 border border-white/60 rounded-lg text-center font-body-lg text-primary">15</div>
+</div>
+<div class="text-body-lg text-outline-variant self-end pb-2 font-bold">:</div>
+<div class="flex-1 flex flex-col items-center">
+<span class="text-label-sm text-outline-variant mb-1 uppercase">Mins</span>
+<div class="w-full py-2 bg-white/40 border border-white/60 rounded-lg text-center font-body-lg text-primary">19</div>
+</div>
+</div>
+<button class="mt-4 w-full py-2 bg-primary-container text-on-primary rounded-lg font-label-sm uppercase tracking-widest text-[10px] hover:shadow-lg transition-shadow duration-300 shadow-[0_4px_12px_rgba(0,109,248,0.2)]">
+              Apply Time
+            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  (function() {
+    // Time Picker Logic
+    const toggle = document.getElementById('time-picker-toggle');
+    const dropdown = document.getElementById('time-picker-dropdown');
+    if (toggle && dropdown) {
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== toggle) {
+          dropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    // Zoom & Pan Logic
+    const container = document.getElementById('zoom-container');
+    const mainCanvas = document.getElementById('main-canvas');
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX, startY;
+    const MIN_SCALE = 0.5;
+    const MAX_SCALE = 3;
+
+    function updateTransform() {
+      container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    // Zoom Buttons
+    document.getElementById('zoom-in').addEventListener('click', () => {
+      scale = Math.min(scale + 0.2, MAX_SCALE);
+      updateTransform();
+    });
+    
+    document.getElementById('zoom-out').addEventListener('click', () => {
+      scale = Math.max(scale - 0.2, MIN_SCALE);
+      updateTransform();
+    });
+    
+    document.getElementById('zoom-reset').addEventListener('click', () => {
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    });
+
+    // Pan with Mouse
+    mainCanvas.addEventListener('mousedown', (e) => {
+      // Don't pan if clicking input elements or buttons
+      if (e.target.closest('input, button, #time-picker-dropdown')) return;
+      isDragging = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      translateX = e.clientX - startX;
+      translateY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // Touch/Pinch to Zoom & Pan
+    let initialDistance = null;
+    let initialScale = 1;
+
+    mainCanvas.addEventListener('touchstart', (e) => {
+      if (e.target.closest('input, button, #time-picker-dropdown')) return;
+      
+      if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - translateX;
+        startY = e.touches[0].clientY - translateY;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        initialDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialScale = scale;
+      }
+    }, {passive: false});
+
+    mainCanvas.addEventListener('touchmove', (e) => {
+      if (e.target.closest('input, button, #time-picker-dropdown')) return;
+      e.preventDefault(); // Prevent scrolling while panning
+
+      if (e.touches.length === 1 && isDragging) {
+        translateX = e.touches[0].clientX - startX;
+        translateY = e.touches[0].clientY - startY;
+        updateTransform();
+      } else if (e.touches.length === 2 && initialDistance !== null) {
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        
+        const delta = currentDistance / initialDistance;
+        scale = Math.min(Math.max(initialScale * delta, MIN_SCALE), MAX_SCALE);
+        updateTransform();
+      }
+    }, {passive: false});
+
+    mainCanvas.addEventListener('touchend', () => {
+      isDragging = false;
+      initialDistance = null;
+    });
+
+    // Mouse Wheel Zoom
+    mainCanvas.addEventListener('wheel', (e) => {
+      if (e.target.closest('#time-picker-dropdown')) return;
+      e.preventDefault();
+      const zoomSensitivity = 0.001;
+      const delta = -e.deltaY * zoomSensitivity;
+      const newScale = Math.min(Math.max(scale + delta, MIN_SCALE), MAX_SCALE);
+      
+      // Calculate origin for zooming to mouse position (simplified for center origin)
+      scale = newScale;
+      updateTransform();
+    }, {passive: false});
+
+
+    // Particle System
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let mouse = { x: null, y: null };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = Math.random() * 3 + 1;
+        this.speedX = Math.random() * 1 - 0.5;
+        this.speedY = Math.random() * 1 - 0.5;
+        this.life = 1;
+        this.decay = Math.random() * 0.02 + 0.01;
+        // Match the cyan/blue theme
+        this.color = `rgba(0, 227, 253, ${this.life})`; 
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= this.decay;
+        this.color = `rgba(0, 227, 253, ${this.life * 0.5})`; // Soften opacity
+        this.size = Math.max(0, this.size - 0.05);
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(0, 227, 253, 0.8)';
+        ctx.fill();
+      }
+    }
+
+    function handleParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].life <= 0 || particles[i].size <= 0) {
+          particles.splice(i, 1);
+          i--;
+        }
+      }
+    }
+
+    function createParticles(x, y) {
+      if (Math.random() > 0.5) { // Throttle slightly
+        particles.push(new Particle(x, y));
+      }
+    }
+
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.x;
+      mouse.y = e.y;
+      createParticles(mouse.x, mouse.y);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      mouse.x = e.touches[0].clientX;
+      mouse.y = e.touches[0].clientY;
+      createParticles(mouse.x, mouse.y);
+    });
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      handleParticles();
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+  })();
+</script></body></html>

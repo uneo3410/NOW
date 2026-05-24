@@ -74,3 +74,9 @@ npm run typecheck
 - Zustand
 - Dexie / IndexedDB
 - 后续阶段预留 React Flow、Framer Motion、vite-plugin-pwa
+- [Codex 执行 Prompt：Phase 2 时间线 MVP](./task/phase-2-timeline-mvp-codex-prompt.md)
+- [UI 风格概念](./docs/ui-style-concept.md)
+- [Codex 执行 Prompt：Phase 3 画布 MVP](./task/phase-3-canvas-mvp-codex-prompt.md)
+- [Codex 执行 Prompt：Phase 4 Todo 闭环](./task/phase-4-todo-timeline-loop-codex-prompt.md)
+- [按天划分与 Daily Workspace 模型](./docs/daily-workspace-model.md)
+- [Codex 执行 Prompt：Phase 3.5 Daily Workspace 重构](./task/phase-3-5-daily-workspace-refactor-codex-prompt.md)

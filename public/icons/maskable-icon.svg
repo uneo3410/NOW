@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Now 时间线</title>
+  <rect width="512" height="512" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="184" fill="#d9e2ff"/>
+  <path d="M256 84v344" stroke="#00e3fd" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="34" fill="#0056c6"/>
+  <circle cx="256" cy="156" r="17" fill="#00e3fd"/>
+  <circle cx="256" cy="356" r="17" fill="#00e3fd"/>
+  <path d="M314 156h86M314 356h86" stroke="#0056c6" stroke-width="22" stroke-linecap="round" opacity=".82"/>
+</svg>

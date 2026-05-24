@@ -1,10 +1,13 @@
 import type { ISODateString } from "../../types/common";
-import type { CardId, EdgeId } from "../../types/id";
+import type { CardId, DayWorkspaceId, EdgeId } from "../../types/id";
+import type { LocalDateString } from "../day/types";
 
 export type CardType = "thought" | "todo";
 
 export type Card = {
   id: CardId;
+  dayId: DayWorkspaceId;
+  date: LocalDateString;
   type: CardType;
   content: string;
   x: number;
@@ -17,8 +20,12 @@ export type Card = {
 
 export type Edge = {
   id: EdgeId;
+  dayId: DayWorkspaceId;
+  date: LocalDateString;
   fromCardId: CardId;
   toCardId: CardId;
+  fromHandleId?: string;
+  toHandleId?: string;
   createdAt: ISODateString;
 };
 

@@ -1,8 +1,13 @@
 :root {
-  --color-surface: #f7f2ea;
-  --color-ink: #211f1c;
-  --color-muted: #6f665c;
-  --color-line: #ded5c9;
+  --color-surface: #f7f9fb;
+  --color-ink: #191c1e;
+  --color-muted: #58606f;
+  --color-line: #c2c6d8;
   --color-ember: #c95f3f;
-  --color-moss: #63705a;
+  --color-moss: #0056c6;
+  --color-canvas: #f4f9ff;
+  --color-primary: #0056c6;
+  --color-primary-soft: #d9e2ff;
+  --color-cyan: #00e3fd;
+  --color-glass: rgb(255 255 255 / 0.52);
 }

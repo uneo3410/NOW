@@ -1,7 +1,11 @@
 export function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) {
+  if (!("serviceWorker" in navigator) || !window.isSecureContext) {
     return;
   }
 
-  // The actual service worker is introduced when the PWA phase begins.
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+      console.warn("Service worker registration failed.", error);
+    });
+  });
 }

@@ -1,41 +1,40 @@
-import type { Card, CreateCardInput } from "../../features/cards/types";
+import type { Card } from "../../features/cards/types";
+import type { LocalDateString } from "../../features/day/types";
 import type { CardId } from "../../types/id";
-import { nowISO } from "../../utils/date";
-import { createId } from "../../utils/id";
 import { db } from "../client";
 
-export async function listCards(): Promise<Card[]> {
+export async function list(): Promise<Card[]> {
   return db.cards.orderBy("createdAt").toArray();
 }
 
-export async function getCard(id: CardId): Promise<Card | undefined> {
+export async function listByDate(date: LocalDateString): Promise<Card[]> {
+  return db.cards.where("date").equals(date).sortBy("createdAt");
+}
+
+export async function listByDayId(dayId: string): Promise<Card[]> {
+  return db.cards.where("dayId").equals(dayId).sortBy("createdAt");
+}
+
+export async function getById(id: CardId): Promise<Card | undefined> {
   return db.cards.get(id);
 }
 
-export async function createCard(input: CreateCardInput): Promise<Card> {
-  const timestamp = nowISO();
-  const card: Card = {
-    id: createId("card"),
-    type: input.type,
-    content: input.content,
-    x: input.x ?? 0,
-    y: input.y ?? 0,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-
+export async function create(card: Card): Promise<Card> {
   await db.cards.add(card);
   return card;
 }
 
-export async function updateCard(id: CardId, patch: Partial<Omit<Card, "id" | "createdAt">>) {
-  await db.cards.update(id, {
-    ...patch,
-    updatedAt: nowISO(),
-  });
-  return db.cards.get(id);
+export async function update(id: CardId, patch: Partial<Card>): Promise<Card> {
+  await db.cards.update(id, patch);
+  const card = await getById(id);
+
+  if (!card) {
+    throw new Error(`Card not found: ${id}`);
+  }
+
+  return card;
 }
 
-export async function deleteCard(id: CardId): Promise<void> {
+export async function remove(id: CardId): Promise<void> {
   await db.cards.delete(id);
 }

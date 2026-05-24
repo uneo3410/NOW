@@ -1,24 +1,31 @@
 import { create } from "zustand";
-import type { CanvasSelection, CanvasViewport } from "../features/canvas/types";
-
-type CanvasMode = "idle" | "creating-card" | "connecting";
+import type { CanvasViewport } from "../features/canvas/types";
+import type { CardId, EdgeId } from "../types/id";
 
 type CanvasStore = {
   viewport: CanvasViewport;
-  selection: CanvasSelection;
-  mode: CanvasMode;
+  selectedCardId: CardId | null;
+  selectedEdgeId: EdgeId | null;
   setViewport: (viewport: CanvasViewport) => void;
-  setSelection: (selection: CanvasSelection) => void;
-  setMode: (mode: CanvasMode) => void;
+  setSelectedCardId: (id: CardId | null) => void;
+  setSelectedEdgeId: (id: EdgeId | null) => void;
   clearSelection: () => void;
 };
 
 export const useCanvasStore = create<CanvasStore>((set) => ({
   viewport: { x: 0, y: 0, zoom: 1 },
-  selection: { cardIds: [], edgeIds: [] },
-  mode: "idle",
+  selectedCardId: null,
+  selectedEdgeId: null,
   setViewport: (viewport) => set({ viewport }),
-  setSelection: (selection) => set({ selection }),
-  setMode: (mode) => set({ mode }),
-  clearSelection: () => set({ selection: { cardIds: [], edgeIds: [] } }),
+  setSelectedCardId: (selectedCardId) =>
+    set((state) => ({
+      selectedCardId,
+      selectedEdgeId: selectedCardId ? null : state.selectedEdgeId,
+    })),
+  setSelectedEdgeId: (selectedEdgeId) =>
+    set((state) => ({
+      selectedEdgeId,
+      selectedCardId: selectedEdgeId ? null : state.selectedCardId,
+    })),
+  clearSelection: () => set({ selectedCardId: null, selectedEdgeId: null }),
 }));

@@ -20,7 +20,14 @@ export type TimelineWallpaperConfig = {
   type: "default" | "image";
 };
 
+export type TimelineHaloConfig = {
+  color?: string;
+  glowColor?: string;
+  opacity?: number;
+};
+
 type TimelineViewProps = {
+  haloConfig?: TimelineHaloConfig;
   wallpaperConfig?: TimelineWallpaperConfig;
   workspace: DayWorkspace | null;
 };
@@ -58,25 +65,22 @@ const NODE_GAP = 34;
 const CLOSED_NOW_OFFSET = 14;
 const OPEN_NOW_OFFSET = 28;
 const BEAM_FOCUS_GAP = 12;
+const DOT_FOCUS_RANGE = 18;
+const DEPTH_FOCUS_RANGE = 22;
+const DEPTH_FADE_RANGE = 86;
 const DEFAULT_WALLPAPER_CONFIG: TimelineWallpaperConfig = {
-  blur: 18,
-  dim: 0.18,
+  blur: 0,
+  dim: 0,
   type: "default",
 };
-const WALLPAPER_PARTICLES = [
-  { delay: "-2s", duration: "24s", left: "8%", size: "7px", top: "18%" },
-  { delay: "-9s", duration: "31s", left: "18%", size: "4px", top: "72%" },
-  { delay: "-5s", duration: "28s", left: "31%", size: "6px", top: "38%" },
-  { delay: "-13s", duration: "34s", left: "45%", size: "3px", top: "14%" },
-  { delay: "-1s", duration: "27s", left: "58%", size: "8px", top: "82%" },
-  { delay: "-16s", duration: "36s", left: "67%", size: "4px", top: "32%" },
-  { delay: "-7s", duration: "30s", left: "76%", size: "5px", top: "58%" },
-  { delay: "-19s", duration: "39s", left: "88%", size: "6px", top: "22%" },
-  { delay: "-11s", duration: "33s", left: "92%", size: "3px", top: "77%" },
-  { delay: "-4s", duration: "26s", left: "52%", size: "5px", top: "51%" },
-];
+const DEFAULT_HALO_CONFIG: Required<TimelineHaloConfig> = {
+  color: "rgba(255, 255, 255, 0.94)",
+  glowColor: "rgba(210, 250, 255, 0.46)",
+  opacity: 0.94,
+};
 
 export function TimelineView({
+  haloConfig = DEFAULT_HALO_CONFIG,
   wallpaperConfig = DEFAULT_WALLPAPER_CONFIG,
   workspace,
 }: TimelineViewProps) {
@@ -134,6 +138,7 @@ export function TimelineView({
     mainCanvasRef.current,
     timelineTop,
   );
+  const haloStyle = getTimelineHaloStyle(haloConfig);
 
   useEffect(() => {
     void loadNodes();
@@ -320,7 +325,10 @@ export function TimelineView({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-white text-ink selection:bg-primary-soft selection:text-[#001945]">
+    <div
+      className="relative min-h-screen overflow-hidden bg-white text-ink selection:bg-primary-soft selection:text-[#001945]"
+      style={haloStyle}
+    >
       <TimelineWallpaperLayer config={wallpaperConfig} />
       <TimelineParticleCanvas />
 
@@ -351,22 +359,6 @@ export function TimelineView({
         </button>
       </div>
 
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute left-[45%] top-[10%] h-1.5 w-1.5 rounded-full bg-cyan opacity-60 shadow-[0_0_8px_rgba(0,227,253,0.8)] blur-[1px]" />
-        <div className="absolute left-[25%] top-[35%] h-2 w-2 rounded-full bg-primary-soft opacity-40 blur-[2px]" />
-        <div className="absolute left-[75%] top-[65%] h-1 w-1 rounded-full bg-cyan opacity-70 shadow-[0_0_6px_rgba(0,227,253,0.5)] blur-[0.5px]" />
-        <div className="absolute left-[35%] top-[80%] h-2.5 w-2.5 rounded-full bg-primary opacity-20 blur-[3px]" />
-        <div className="absolute left-[80%] top-[20%] h-1.5 w-1.5 rounded-full bg-cyan opacity-50 blur-[1px]" />
-      </div>
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="animate-drift absolute left-[10%] top-[15%] h-3 w-3 rounded-full bg-white opacity-40 blur-[1px]" />
-        <div className="animate-drift-slow absolute left-[85%] top-[45%] h-2 w-2 rounded-full bg-white opacity-30 blur-[1px]" />
-        <div className="animate-drift-reverse absolute left-[15%] top-[75%] h-4 w-4 rounded-full bg-white opacity-20 blur-[2px]" />
-        <div className="animate-drift absolute left-[60%] top-[30%] h-2.5 w-2.5 rounded-full bg-white opacity-25 blur-[1px]" />
-        <div className="animate-drift-slow absolute left-[70%] top-[85%] h-3.5 w-3.5 rounded-full bg-white opacity-15 blur-[2px]" />
-        <div className="animate-drift-reverse absolute left-[80%] top-[10%] h-2 w-2 rounded-full bg-white opacity-35 blur-[0.5px]" />
-      </div>
-
       <div
         className="relative z-10 mx-auto flex h-screen w-full max-w-[1440px]"
         ref={mainCanvasRef}
@@ -385,8 +377,6 @@ export function TimelineView({
             transform: `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.scale})`,
           }}
         >
-          <div className="pointer-events-none absolute left-[30%] top-[70%] z-0 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-soft/20 blur-[100px]" />
-          <div className="pointer-events-none absolute left-[30%] top-[70%] z-0 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan/10 blur-[60px]" />
           <TimelineBeam focusY={beamFocusY} timelineTop={timelineTop} />
 
           <div className="relative z-20 h-full w-full">
@@ -399,11 +389,13 @@ export function TimelineView({
                 if (item.kind === "empty") {
                   return (
                     <div
-                      className="group absolute left-[30%] flex w-full max-w-lg -translate-y-1/2 items-center transition-[top,transform,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                      className="timeline-depth-item group absolute left-[30%] flex w-full max-w-lg items-center transition-[top,transform,opacity,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
                       key={item.key}
-                      style={{ top: `${item.top}%` }}
+                      style={getTimelineItemStyle(item.top, beamFocusY)}
                     >
-                      <div className="absolute -left-[4px] h-[9px] w-[9px] rounded-full bg-cyan/90 shadow-[0_0_16px_rgba(0,227,253,0.8)] ring-[3px] ring-white transition-transform duration-500 group-hover:scale-125" />
+                      <div className="timeline-depth-dot absolute -left-[4px] h-[9px] w-[9px] rounded-full bg-cyan/90 ring-[3px] ring-white transition-[box-shadow,transform] duration-500">
+                        <span aria-hidden="true" className="timeline-halo-layer" />
+                      </div>
                       <div className="ml-16 w-full cursor-default rounded-xl border border-white/70 bg-white/[0.48] p-6 text-[#4a5160] shadow-[0_18px_54px_rgba(0,64,112,0.10),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_0_0_1px_rgba(255,255,255,0.42)] backdrop-blur-[34px] transition-all duration-700 hover:-translate-y-1 hover:bg-white/[0.56] hover:shadow-[0_22px_60px_rgba(0,64,112,0.13),inset_0_1px_0_rgba(255,255,255,0.78),inset_0_0_0_1px_rgba(255,255,255,0.46)]">
                         <div className="mb-4 text-xs font-semibold uppercase tracking-[0.1em] text-[#005f6d] opacity-90">
                           Empty Timeline
@@ -419,11 +411,13 @@ export function TimelineView({
                 if (item.kind === "node") {
                   return (
                     <div
-                      className="group absolute left-[30%] flex w-full max-w-lg -translate-y-1/2 items-center transition-[top,transform,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                      className="timeline-depth-item group absolute left-[30%] flex w-full max-w-lg items-center transition-[top,transform,opacity,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
                       key={item.key}
-                      style={{ top: `${item.top}%` }}
+                      style={getTimelineItemStyle(item.top, beamFocusY)}
                     >
-                      <div className="absolute -left-[4px] h-[9px] w-[9px] rounded-full bg-cyan/90 shadow-[0_0_16px_rgba(0,227,253,0.8)] ring-[3px] ring-white transition-transform duration-500 group-hover:scale-125" />
+                      <div className="timeline-depth-dot absolute -left-[4px] h-[9px] w-[9px] rounded-full bg-cyan/90 ring-[3px] ring-white transition-[box-shadow,transform] duration-500">
+                        <span aria-hidden="true" className="timeline-halo-layer" />
+                      </div>
                       <div className="ml-16 w-full">
                         <TimelineNodeCard
                           node={item.node}
@@ -439,6 +433,7 @@ export function TimelineView({
                   <div
                     className="absolute left-[30%] top-[70%] z-30 flex w-full max-w-2xl -translate-y-1/2 items-center"
                     key={item.key}
+                    style={getNowDotStyle(beamFocusY)}
                   >
                     <div className="absolute right-[calc(100%+32px)] text-right">
                       <span className="text-xs font-semibold uppercase tracking-[0.25em] text-primary opacity-90 drop-shadow-sm">
@@ -456,7 +451,9 @@ export function TimelineView({
                       ].join(" ")}
                       onClick={() => setIsNowDialogOpen((value) => !value)}
                       type="button"
-                    />
+                    >
+                      <span aria-hidden="true" className="timeline-halo-layer" />
+                    </button>
                     <TimelineCreateInput isOpen={isNowDialogOpen} onCreate={createNode} />
                     {error ? (
                       <p
@@ -482,9 +479,10 @@ export function TimelineView({
 }
 
 function TimelineWallpaperLayer({ config }: { config: TimelineWallpaperConfig }) {
-  const blur = config.blur ?? DEFAULT_WALLPAPER_CONFIG.blur ?? 18;
-  const dim = config.dim ?? DEFAULT_WALLPAPER_CONFIG.dim ?? 0.18;
+  const blur = config.blur ?? DEFAULT_WALLPAPER_CONFIG.blur ?? 0;
+  const dim = config.dim ?? DEFAULT_WALLPAPER_CONFIG.dim ?? 0;
   const hasImageWallpaper = config.type === "image" && Boolean(config.imageUrl);
+  const hasOverlay = blur > 0 || dim > 0;
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
@@ -498,30 +496,16 @@ function TimelineWallpaperLayer({ config }: { config: TimelineWallpaperConfig })
       ) : (
         <div className="timeline-default-wallpaper absolute inset-0" />
       )}
-      <div className="absolute inset-0 overflow-hidden">
-        {WALLPAPER_PARTICLES.map((particle) => (
-          <span
-            className="timeline-wallpaper-particle absolute rounded-full bg-cyan/45 shadow-[0_0_18px_rgba(0,227,253,0.32)]"
-            key={`${particle.left}-${particle.top}`}
-            style={{
-              animationDelay: particle.delay,
-              animationDuration: particle.duration,
-              height: particle.size,
-              left: particle.left,
-              top: particle.top,
-              width: particle.size,
-            }}
-          />
-        ))}
-      </div>
-      <div
-        className="absolute inset-0"
-        style={{
-          WebkitBackdropFilter: `blur(${blur}px)`,
-          backdropFilter: `blur(${blur}px)`,
-          backgroundColor: `rgba(255, 255, 255, ${dim})`,
-        }}
-      />
+      {hasOverlay ? (
+        <div
+          className="absolute inset-0"
+          style={{
+            WebkitBackdropFilter: blur > 0 ? `blur(${blur}px)` : undefined,
+            backdropFilter: blur > 0 ? `blur(${blur}px)` : undefined,
+            backgroundColor: `rgba(255, 255, 255, ${dim})`,
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -542,6 +526,10 @@ function TimelineBeam({ focusY, timelineTop }: { focusY: number; timelineTop: nu
           boxShadow: "0 0 6px rgba(0, 227, 253, 0.28)",
           top: `${timelineTop}%`,
         }}
+      />
+      <div
+        className="timeline-beam-focus-glint absolute left-[30%] z-20"
+        style={{ top: `${focusY}%` }}
       />
       {upperEnd > timelineTop ? (
         <div
@@ -569,6 +557,65 @@ function getTimelineCardTop(index: number, total: number, isNowDialogOpen: boole
   const distanceFromNow = nowOffset + (total - index - 1) * NODE_GAP;
 
   return NOW_TOP - distanceFromNow;
+}
+
+function getTimelineHaloStyle(config: TimelineHaloConfig): CSSProperties {
+  return {
+    "--timeline-halo-color": config.color ?? DEFAULT_HALO_CONFIG.color,
+    "--timeline-halo-glow-color": config.glowColor ?? DEFAULT_HALO_CONFIG.glowColor,
+    "--timeline-halo-opacity": String(config.opacity ?? DEFAULT_HALO_CONFIG.opacity),
+  } as CSSProperties;
+}
+
+function getTimelineItemStyle(top: number, focusY: number): CSSProperties {
+  const distance = Math.abs(top - focusY);
+  const depth = clamp((distance - DEPTH_FOCUS_RANGE) / DEPTH_FADE_RANGE, 0, 1);
+
+  return {
+    ...getTimelineDotStyle(top, focusY),
+    "--timeline-depth-blur": `${(depth * 0.85).toFixed(2)}px`,
+    "--timeline-depth-opacity": (1 - depth * 0.14).toFixed(3),
+    "--timeline-depth-scale": (1 - depth * 0.018).toFixed(3),
+    top: `${top}%`,
+  } as CSSProperties;
+}
+
+function getTimelineDotStyle(top: number, focusY: number): CSSProperties {
+  const focus = getTimelineFocusIntensity(top, focusY);
+  const glowSize = 16 + focus * 28;
+  const secondaryGlowSize = 8 + focus * 20;
+
+  return {
+    "--timeline-halo-glow-size": `${(12 + focus * 18).toFixed(1)}px`,
+    "--timeline-halo-strength": (0.76 + focus * 0.24).toFixed(3),
+    "--timeline-dot-scale": (1 + focus * 0.58).toFixed(3),
+    "--timeline-dot-shadow": [
+      `0 0 ${glowSize.toFixed(1)}px rgba(0, 227, 253, ${0.72 + focus * 0.2})`,
+      `0 0 ${secondaryGlowSize.toFixed(1)}px rgba(210, 250, 255, ${0.18 + focus * 0.2})`,
+    ].join(", "),
+  } as CSSProperties;
+}
+
+function getNowDotStyle(focusY: number): CSSProperties {
+  const focus = getTimelineFocusIntensity(NOW_TOP, focusY);
+
+  return {
+    "--timeline-halo-glow-size": `${(16 + focus * 22).toFixed(1)}px`,
+    "--timeline-halo-strength": (0.78 + focus * 0.22).toFixed(3),
+    "--timeline-dot-scale": (1 + focus * 0.5).toFixed(3),
+    "--timeline-dot-shadow": [
+      `0 0 ${(32 + focus * 24).toFixed(1)}px ${(8 + focus * 8).toFixed(1)}px rgba(0, 109, 248, ${
+        0.4 + focus * 0.18
+      })`,
+      `0 0 ${(16 + focus * 22).toFixed(1)}px rgba(210, 250, 255, ${
+        0.14 + focus * 0.24
+      })`,
+    ].join(", "),
+  } as CSSProperties;
+}
+
+function getTimelineFocusIntensity(top: number, focusY: number) {
+  return clamp(1 - Math.abs(top - focusY) / DOT_FOCUS_RANGE, 0, 1);
 }
 
 function getBeamFocusY(
@@ -631,82 +678,137 @@ function TimelineParticleCanvas() {
     const canvasElement = canvas;
     const drawingContext = context;
     const particles: Particle[] = [];
+    const pointer = {
+      lastMovedAt: 0,
+      x: -9999,
+      y: -9999,
+    };
     let frameId = 0;
+    let height = window.innerHeight;
+    let pixelRatio = 1;
+    let width = window.innerWidth;
 
     class Particle {
-      color: string;
-      decay: number;
-      life: number;
+      alpha: number;
+      drift: number;
+      phase: number;
+      phaseSpeed: number;
       size: number;
       speedX: number;
       speedY: number;
       x: number;
       y: number;
 
-      constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 3 + 1;
-        this.speedX = Math.random() * 1 - 0.5;
-        this.speedY = Math.random() * 1 - 0.5;
-        this.life = 1;
-        this.decay = Math.random() * 0.02 + 0.01;
-        this.color = `rgba(0, 227, 253, ${this.life})`;
+      constructor(canvasWidth: number, canvasHeight: number) {
+        this.alpha = Math.random() * 0.2 + 0.14;
+        this.drift = Math.random() * Math.PI * 2;
+        this.phase = Math.random() * Math.PI * 2;
+        this.phaseSpeed = Math.random() * 0.0012 + 0.0007;
+        this.size = Math.random() * 1.9 + 1.1;
+        this.speedX = (Math.random() - 0.5) * 0.16;
+        this.speedY = (Math.random() - 0.5) * 0.16;
+        this.x = Math.random() * canvasWidth;
+        this.y = Math.random() * canvasHeight;
       }
 
-      update() {
+      update(time: number) {
+        const dx = this.x - pointer.x;
+        const dy = this.y - pointer.y;
+        const distance = Math.hypot(dx, dy);
+        const pointerAge = time - pointer.lastMovedAt;
+        const pointerRadius = pointerAge < 520 ? 132 : 0;
+
+        if (pointerRadius > 0 && distance > 0 && distance < pointerRadius) {
+          const force = ((pointerRadius - distance) / pointerRadius) ** 2;
+          this.speedX += (dx / distance) * force * 1.65;
+          this.speedY += (dy / distance) * force * 1.65;
+        }
+
+        this.speedX += Math.cos(this.drift + time * 0.00018) * 0.004;
+        this.speedY += Math.sin(this.drift + time * 0.00016) * 0.004;
         this.x += this.speedX;
         this.y += this.speedY;
-        this.life -= this.decay;
-        this.color = `rgba(0, 227, 253, ${this.life * 0.5})`;
-        this.size = Math.max(0, this.size - 0.05);
+        this.speedX *= 0.965;
+        this.speedY *= 0.965;
+
+        if (this.x < -24) {
+          this.x = width + 24;
+        } else if (this.x > width + 24) {
+          this.x = -24;
+        }
+
+        if (this.y < -24) {
+          this.y = height + 24;
+        } else if (this.y > height + 24) {
+          this.y = -24;
+        }
       }
 
-      draw() {
+      draw(time: number) {
+        const breath = 0.72 + Math.sin(this.phase + time * this.phaseSpeed) * 0.28;
+        const alpha = this.alpha * breath;
+        const radius = this.size * (0.9 + breath * 0.22);
+
         drawingContext.beginPath();
-        drawingContext.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        drawingContext.fillStyle = this.color;
-        drawingContext.shadowBlur = 10;
-        drawingContext.shadowColor = "rgba(0, 227, 253, 0.8)";
+        drawingContext.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        drawingContext.fillStyle = `rgba(0, 176, 204, ${alpha})`;
+        drawingContext.shadowBlur = 8;
+        drawingContext.shadowColor = `rgba(0, 227, 253, ${alpha * 0.58})`;
         drawingContext.fill();
       }
     }
 
-    function resizeCanvas() {
-      canvasElement.width = window.innerWidth;
-      canvasElement.height = window.innerHeight;
-    }
+    function syncParticleCount() {
+      const targetCount = clamp(Math.round((width * height) / 17000), 42, 105);
 
-    function createParticle(x: number, y: number) {
-      if (Math.random() > 0.5) {
-        particles.push(new Particle(x, y));
+      while (particles.length < targetCount) {
+        particles.push(new Particle(width, height));
+      }
+
+      if (particles.length > targetCount) {
+        particles.splice(targetCount);
       }
     }
 
+    function resizeCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvasElement.width = Math.floor(width * pixelRatio);
+      canvasElement.height = Math.floor(height * pixelRatio);
+      canvasElement.style.width = `${width}px`;
+      canvasElement.style.height = `${height}px`;
+      drawingContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      syncParticleCount();
+    }
+
+    function movePointer(x: number, y: number) {
+      pointer.x = x;
+      pointer.y = y;
+      pointer.lastMovedAt = performance.now();
+    }
+
     function handlePointerMove(event: globalThis.MouseEvent) {
-      createParticle(event.x, event.y);
+      movePointer(event.clientX, event.clientY);
     }
 
     function handleTouchMove(event: TouchEvent) {
       const touch = event.touches[0];
 
       if (touch) {
-        createParticle(touch.clientX, touch.clientY);
+        movePointer(touch.clientX, touch.clientY);
       }
     }
 
     function animateParticles() {
+      const now = performance.now();
+
       drawingContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
       for (let index = 0; index < particles.length; index += 1) {
         const particle = particles[index];
-        particle.update();
-        particle.draw();
-
-        if (particle.life <= 0 || particle.size <= 0) {
-          particles.splice(index, 1);
-          index -= 1;
-        }
+        particle.update(now);
+        particle.draw(now);
       }
 
       frameId = window.requestAnimationFrame(animateParticles);

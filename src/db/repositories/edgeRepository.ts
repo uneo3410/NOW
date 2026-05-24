@@ -20,6 +20,11 @@ export async function create(edge: Edge): Promise<Edge> {
   return edge;
 }
 
+export async function put(edge: Edge): Promise<Edge> {
+  await db.edges.put(edge);
+  return edge;
+}
+
 export async function getById(id: EdgeId): Promise<Edge | undefined> {
   return db.edges.get(id);
 }

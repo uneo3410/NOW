@@ -24,6 +24,11 @@ export async function create(node: TimelineNode): Promise<TimelineNode> {
   return node;
 }
 
+export async function put(node: TimelineNode): Promise<TimelineNode> {
+  await db.timelineNodes.put(node);
+  return node;
+}
+
 export async function getById(id: TimelineNodeId): Promise<TimelineNode | undefined> {
   return db.timelineNodes.get(id);
 }

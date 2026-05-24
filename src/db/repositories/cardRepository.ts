@@ -24,6 +24,11 @@ export async function create(card: Card): Promise<Card> {
   return card;
 }
 
+export async function put(card: Card): Promise<Card> {
+  await db.cards.put(card);
+  return card;
+}
+
 export async function update(id: CardId, patch: Partial<Card>): Promise<Card> {
   await db.cards.update(id, patch);
   const card = await getById(id);

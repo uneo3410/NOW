@@ -1,10 +1,9 @@
 import { CanvasPage } from "../pages/CanvasPage";
-import { HomePage } from "../pages/HomePage";
 import { TimelinePage } from "../pages/TimelinePage";
 
 export const routes = {
   canvas: <CanvasPage />,
-  home: <HomePage />,
+  home: <TimelinePage />,
   timeline: <TimelinePage />,
 };
 

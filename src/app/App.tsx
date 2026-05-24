@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { getRoute } from "./routes";
 import { AppShell } from "../layouts/AppShell";
-import { isStandalonePwa } from "../utils/device";
 
 export function App() {
   const [pathname, setPathname] = useState(() => getInitialPathname());
 
   useEffect(() => {
     function handlePopState() {
-      setPathname(getPwaPathname(window.location.pathname));
+      setPathname(getAppPathname(window.location.pathname));
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -16,7 +15,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (pathname === "/" && shouldOpenTimelineForPwa()) {
+    if (pathname === "/") {
       window.history.replaceState(null, "", "/timeline");
       setPathname("/timeline");
     }
@@ -67,21 +66,16 @@ export function App() {
 }
 
 function getInitialPathname() {
-  return getPwaPathname(window.location.pathname);
+  return getAppPathname(window.location.pathname);
 }
 
-function getPwaPathname(pathname: string) {
-  if (pathname === "/" && shouldOpenTimelineForPwa()) {
+function getAppPathname(pathname: string) {
+  if (pathname === "/") {
     window.history.replaceState(null, "", "/timeline");
     return "/timeline";
   }
 
   return pathname;
-}
-
-function shouldOpenTimelineForPwa() {
-  const params = new URLSearchParams(window.location.search);
-  return isStandalonePwa() || params.get("source") === "pwa";
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

@@ -1,9 +1,11 @@
 import {
   create as createEdgeRecord,
   listByDayId as listEdgesByDayId,
+  put as putEdgeRecord,
   remove as removeEdge,
   removeByCardIdAndDayId,
 } from "../../../db/repositories/edgeRepository";
+import { put as putCardRecord } from "../../../db/repositories/cardRepository";
 import type { Card, CreateCardInput, Edge } from "../../cards/types";
 import type { DayWorkspace } from "../../day/types";
 import type { CardId, EdgeId } from "../../../types/id";
@@ -66,6 +68,14 @@ export async function updateCanvasCardContent(cardId: CardId, content: string): 
 export async function deleteCanvasCard(cardId: CardId, workspace: DayWorkspace): Promise<void> {
   await removeByCardIdAndDayId(cardId, workspace.id);
   await deleteCard(cardId);
+}
+
+export async function restoreCanvasCard(card: Card): Promise<Card> {
+  return putCardRecord(card);
+}
+
+export async function restoreCanvasEdges(edges: Edge[]): Promise<Edge[]> {
+  return Promise.all(edges.map((edge) => putEdgeRecord(edge)));
 }
 
 export async function createCanvasEdge(

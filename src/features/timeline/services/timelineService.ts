@@ -5,6 +5,7 @@ import {
   listByDate,
   listByDayId,
   listBySourceCardId,
+  put,
   remove,
   update,
 } from "../../../db/repositories/timelineRepository";
@@ -104,4 +105,8 @@ export async function updateTimelineNode(
 
 export async function deleteTimelineNode(id: TimelineNodeId): Promise<void> {
   await remove(id);
+}
+
+export async function restoreTimelineNode(node: TimelineNode): Promise<TimelineNode> {
+  return put(node);
 }

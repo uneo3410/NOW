@@ -1,4 +1,4 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
+import { useEffect, type PropsWithChildren } from "react";
 import { useCurrentDay } from "../features/day/hooks/useCurrentDay";
 import { TimelineThemeEditorWindow } from "../features/settings/components/TimelineThemeEditorWindow";
 import { useViewportKind } from "../hooks/useViewportKind";
@@ -16,8 +16,9 @@ export function AppShell({ children, pathname }: AppShellProps) {
   const date = useCurrentDay();
   const viewportKind = useViewportKind();
   const activeSurface = getActiveSurface(pathname);
-  const [isThemeEditorOpen, setIsThemeEditorOpen] = useState(false);
+  const isThemeEditorOpen = useUiStore((state) => state.isThemeEditorOpen);
   const setActiveSurface = useUiStore((state) => state.setActiveSurface);
+  const setThemeEditorOpen = useUiStore((state) => state.setThemeEditorOpen);
   const setViewportKind = useUiStore((state) => state.setViewportKind);
 
   useEffect(() => {
@@ -30,17 +31,16 @@ export function AppShell({ children, pathname }: AppShellProps) {
 
   useEffect(() => {
     if (pathname === "/settings") {
-      setIsThemeEditorOpen(true);
+      setThemeEditorOpen(true);
     }
-  }, [pathname]);
+  }, [pathname, setThemeEditorOpen]);
 
-  const openThemeEditor = () => setIsThemeEditorOpen(true);
-  const closeThemeEditor = () => setIsThemeEditorOpen(false);
+  const closeThemeEditor = () => setThemeEditorOpen(false);
 
   if (viewportKind === "mobile") {
     return (
       <>
-        <MobileLayout activeSurface={activeSurface} date={date} onOpenSettings={openThemeEditor}>
+        <MobileLayout activeSurface={activeSurface} date={date}>
           {children}
         </MobileLayout>
         <TimelineThemeEditorWindow isOpen={isThemeEditorOpen} onClose={closeThemeEditor} />
@@ -50,7 +50,7 @@ export function AppShell({ children, pathname }: AppShellProps) {
 
   return (
     <>
-      <DesktopLayout activeSurface={activeSurface} date={date} onOpenSettings={openThemeEditor}>
+      <DesktopLayout activeSurface={activeSurface} date={date}>
         {children}
       </DesktopLayout>
       <TimelineThemeEditorWindow isOpen={isThemeEditorOpen} onClose={closeThemeEditor} />
@@ -59,7 +59,7 @@ export function AppShell({ children, pathname }: AppShellProps) {
 }
 
 function getActiveSurface(pathname: string): ActiveSurface {
-  if (pathname === "/timeline") {
+  if (pathname === "/timeline" || pathname === "/settings") {
     return "timeline";
   }
 

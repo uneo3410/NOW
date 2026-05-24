@@ -27,11 +27,18 @@ import { Button } from "../../../components/ui/Button";
 import { Textarea } from "../../../components/ui/Textarea";
 import { CardNode } from "../../canvas/components/CardNode";
 import { useCanvasActions } from "../../canvas/hooks/useCanvasActions";
+import {
+  deleteCanvasCard,
+  deleteCanvasEdge,
+  restoreCanvasCard,
+  restoreCanvasEdges,
+} from "../../canvas/services/canvasService";
 import type { Card, Edge as CanvasEdge } from "../../cards/types";
 import type { DayWorkspace } from "../../day/types";
 import { useTodoActions } from "../../todo/hooks/useTodoActions";
 import { useViewportKind } from "../../../hooks/useViewportKind";
 import { useCanvasStore } from "../../../stores/canvasStore";
+import { useUndoStore } from "../../../stores/undoStore";
 import { useUiStore } from "../../../stores/uiStore";
 import type { CardId, EdgeId, TimelineNodeId } from "../../../types/id";
 import { useTimelineActions } from "../hooks/useTimelineActions";
@@ -44,6 +51,10 @@ import type {
   TimelineThemeConfig,
 } from "../theme/types";
 import type { CreateTimelineNodeInput, TimelineNode } from "../types";
+import {
+  deleteTimelineNode as deleteTimelineNodeRecord,
+  restoreTimelineNode,
+} from "../services/timelineService";
 import { TimelineCreateInput } from "./TimelineCreateInput";
 import { TimelineNodeCard } from "./TimelineNodeCard";
 
@@ -120,9 +131,16 @@ function TimelineCanvasSurfaceInner({
   const isMobile = viewportKind === "mobile";
   const feedback = useUiStore((state) => state.feedback);
   const setFeedback = useUiStore((state) => state.setFeedback);
+  const setThemeEditorOpen = useUiStore((state) => state.setThemeEditorOpen);
   const setTimelineCanvasChromeVisible = useUiStore(
     (state) => state.setTimelineCanvasChromeVisible,
   );
+  const canRedo = useUndoStore((state) => state.redoStack.length > 0);
+  const canUndo = useUndoStore((state) => state.undoStack.length > 0);
+  const isApplyingUndo = useUndoStore((state) => state.isApplying);
+  const pushUndoAction = useUndoStore((state) => state.pushAction);
+  const redoLastAction = useUndoStore((state) => state.redo);
+  const undoLastAction = useUndoStore((state) => state.undo);
   const setSelectedCardId = useCanvasStore((state) => state.setSelectedCardId);
   const setSelectedEdgeId = useCanvasStore((state) => state.setSelectedEdgeId);
   const { completeTodo } = useTodoActions();
@@ -233,6 +251,10 @@ function TimelineCanvasSurfaceInner({
     window.setTimeout(() => setFeedback(null), 1800);
   }
 
+  async function refreshSurface() {
+    await Promise.all([load(), loadNodes()]);
+  }
+
   function getFlowPosition(clientX: number, clientY: number) {
     return (
       flowRef.current?.screenToFlowPosition({ x: clientX, y: clientY }) ?? {
@@ -287,6 +309,56 @@ function TimelineCanvasSurfaceInner({
     closeMenu();
   }
 
+  async function createCardWithUndo(
+    input: { content: string; type: "thought" | "todo"; x: number; y: number },
+    label: string,
+  ) {
+    if (!workspace) {
+      return null;
+    }
+
+    const card = (await createCard(input)) as Card | null;
+
+    if (!card) {
+      return null;
+    }
+
+    pushUndoAction({
+      label,
+      redo: async () => {
+        await restoreCanvasCard(card);
+      },
+      undo: async () => {
+        await deleteCanvasCard(card.id, workspace);
+      },
+    });
+
+    return card;
+  }
+
+  async function createTimelineNodeWithUndo(
+    input: CreateTimelineNodeInput,
+    label = "创建时间卡片",
+  ) {
+    const node = (await createNode(input)) as TimelineNode | null;
+
+    if (!node) {
+      return null;
+    }
+
+    pushUndoAction({
+      label,
+      redo: async () => {
+        await restoreTimelineNode(node);
+      },
+      undo: async () => {
+        await deleteTimelineNodeRecord(node.id);
+      },
+    });
+
+    return node;
+  }
+
   async function handleCreationSubmit(draft: CreationDraft, content: string) {
     const trimmedContent = content.trim();
 
@@ -295,16 +367,19 @@ function TimelineCanvasSurfaceInner({
     }
 
     if (draft.kind === "timeline") {
-      await createNode({ content: trimmedContent });
+      await createTimelineNodeWithUndo({ content: trimmedContent });
     } else if (draft.kind === "edit-card" && draft.cardId) {
       await updateCardContent(draft.cardId, trimmedContent);
     } else {
-      await createCard({
-        content: trimmedContent,
-        type: draft.kind === "todo" ? "todo" : "thought",
-        x: Math.round(draft.flowPosition.x - 128),
-        y: Math.round(draft.flowPosition.y - 64),
-      });
+      await createCardWithUndo(
+        {
+          content: trimmedContent,
+          type: draft.kind === "todo" ? "todo" : "thought",
+          x: Math.round(draft.flowPosition.x - 128),
+          y: Math.round(draft.flowPosition.y - 64),
+        },
+        draft.kind === "todo" ? "创建 Todo" : "创建想法卡片",
+      );
     }
 
     setCreationDraft(null);
@@ -319,12 +394,15 @@ function TimelineCanvasSurfaceInner({
       const text = await navigator.clipboard?.readText();
 
       if (text?.trim()) {
-        await createCard({
-          content: text.trim().slice(0, 220),
-          type: "thought",
-          x: Math.round(menuState.flowPosition.x - 128),
-          y: Math.round(menuState.flowPosition.y - 64),
-        });
+        await createCardWithUndo(
+          {
+            content: text.trim().slice(0, 220),
+            type: "thought",
+            x: Math.round(menuState.flowPosition.x - 128),
+            y: Math.round(menuState.flowPosition.y - 64),
+          },
+          "粘贴创建想法卡片",
+        );
         closeMenu();
         showFeedback("已从剪贴板创建想法卡片");
         return;
@@ -356,7 +434,45 @@ function TimelineCanvasSurfaceInner({
   }
 
   async function handleDeleteSelected() {
+    if (!workspace) {
+      return;
+    }
+
+    const cardSnapshot = selectedCard ? { ...selectedCard } : null;
+    const edgeSnapshot = selectedEdge ? { ...selectedEdge } : null;
+    const connectedEdges = cardSnapshot
+      ? edges
+          .filter(
+            (edge) => edge.fromCardId === cardSnapshot.id || edge.toCardId === cardSnapshot.id,
+          )
+          .map((edge) => ({ ...edge }))
+      : [];
+
     await deleteSelected();
+
+    if (cardSnapshot) {
+      pushUndoAction({
+        label: "删除卡片",
+        redo: async () => {
+          await deleteCanvasCard(cardSnapshot.id, workspace);
+        },
+        undo: async () => {
+          await restoreCanvasCard(cardSnapshot);
+          await restoreCanvasEdges(connectedEdges);
+        },
+      });
+    } else if (edgeSnapshot) {
+      pushUndoAction({
+        label: "删除连线",
+        redo: async () => {
+          await deleteCanvasEdge(edgeSnapshot.id);
+        },
+        undo: async () => {
+          await restoreCanvasEdges([edgeSnapshot]);
+        },
+      });
+    }
+
     closeMenu();
   }
 
@@ -365,9 +481,123 @@ function TimelineCanvasSurfaceInner({
       return;
     }
 
-    await completeTodo(selectedCard.id);
+    const previousCard = { ...selectedCard };
+    const existingTodoNodeIds = new Set(
+      nodes
+        .filter((node) => node.source === "todo-card" && node.sourceCardId === selectedCard.id)
+        .map((node) => node.id),
+    );
+    const result = await completeTodo(selectedCard.id);
+
+    if (result) {
+      const createdTimelineNode = !existingTodoNodeIds.has(result.timelineNode.id);
+
+      pushUndoAction({
+        label: "完成 Todo",
+        redo: async () => {
+          await restoreCanvasCard(result.card);
+
+          if (createdTimelineNode) {
+            await restoreTimelineNode(result.timelineNode);
+          }
+        },
+        undo: async () => {
+          await restoreCanvasCard(previousCard);
+
+          if (createdTimelineNode) {
+            await deleteTimelineNodeRecord(result.timelineNode.id);
+          }
+        },
+      });
+    }
+
     clearSelection();
     closeMenu();
+  }
+
+  async function handleDeleteTimelineNode(node: TimelineNode) {
+    await deleteNode(node.id);
+    pushUndoAction({
+      label: "删除时间卡片",
+      redo: async () => {
+        await deleteTimelineNodeRecord(node.id);
+      },
+      undo: async () => {
+        await restoreTimelineNode(node);
+      },
+    });
+  }
+
+  async function handleBeforeFlowDelete({
+    edges: deletedFlowEdges,
+    nodes: deletedFlowNodes,
+  }: {
+    edges: FlowEdge[];
+    nodes: FlowNode[];
+  }) {
+    if (!workspace) {
+      return false;
+    }
+
+    const deletedCardIds = new Set(deletedFlowNodes.map((node) => node.id as CardId));
+    const deletedEdgeIds = new Set(deletedFlowEdges.map((edge) => edge.id as EdgeId));
+    const cardSnapshots = cards
+      .filter((card) => deletedCardIds.has(card.id))
+      .map((card) => ({ ...card }));
+    const edgeSnapshots = edges
+      .filter(
+        (edge) =>
+          deletedEdgeIds.has(edge.id) ||
+          deletedCardIds.has(edge.fromCardId) ||
+          deletedCardIds.has(edge.toCardId),
+      )
+      .map((edge) => ({ ...edge }));
+
+    if (cardSnapshots.length === 0 && edgeSnapshots.length === 0) {
+      return true;
+    }
+
+    pushUndoAction({
+      label: cardSnapshots.length > 0 ? "删除卡片" : "删除连线",
+      redo: async () => {
+        await Promise.all(edgeSnapshots.map((edge) => deleteCanvasEdge(edge.id)));
+        await Promise.all(cardSnapshots.map((card) => deleteCanvasCard(card.id, workspace)));
+      },
+      undo: async () => {
+        await Promise.all(cardSnapshots.map((card) => restoreCanvasCard(card)));
+        await restoreCanvasEdges(edgeSnapshots);
+      },
+    });
+
+    return true;
+  }
+
+  async function handleUndo() {
+    try {
+      const action = await undoLastAction();
+
+      if (action) {
+        await refreshSurface();
+        clearSelection();
+        showFeedback(`已撤销：${action.label}`);
+      }
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : "撤销失败");
+    }
+  }
+
+  async function handleRedo() {
+    try {
+      const action = await redoLastAction();
+
+      if (action) {
+        await refreshSurface();
+        clearSelection();
+        showFeedback(`已重做：${action.label}`);
+      }
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : "重做失败");
+    }
   }
 
   function handleFitView() {
@@ -503,6 +733,7 @@ function TimelineCanvasSurfaceInner({
         onNodeDragStop={(_, node) => {
           void saveCardPosition(node.id as CardId, node.position);
         }}
+        onBeforeDelete={(params) => handleBeforeFlowDelete(params)}
         onNodesChange={onNodesChange}
         onNodesDelete={handleNodesDelete}
         onPaneClick={() => {
@@ -530,8 +761,8 @@ function TimelineCanvasSurfaceInner({
         <ViewportPortal>
           <TimelineLayer
             beamFocusY={beamFocusY || metrics.nowY}
-            createNode={createNode}
-            deleteNode={deleteNode}
+            createNode={createTimelineNodeWithUndo}
+            deleteNode={handleDeleteTimelineNode}
             error={timelineError}
             isLoading={isTimelineLoading}
             isNowDialogOpen={isNowDialogOpen}
@@ -546,7 +777,10 @@ function TimelineCanvasSurfaceInner({
 
       <TimelineCanvasChrome
         canDelete={Boolean(selectedCardId || selectedEdgeId)}
+        canRedo={canRedo}
+        canUndo={canUndo}
         entryMode={entryMode}
+        isApplyingUndo={isApplyingUndo}
         isChromeVisible={isChromeVisible}
         onCreate={() => {
           setCreationDraft({
@@ -558,8 +792,11 @@ function TimelineCanvasSurfaceInner({
         }}
         onDelete={() => void handleDeleteSelected()}
         onFitView={handleFitView}
+        onOpenSettings={() => setThemeEditorOpen(true)}
+        onRedo={() => void handleRedo()}
         onResetView={handleResetView}
         onToggleChrome={() => setIsChromeVisible((value) => !value)}
+        onUndo={() => void handleUndo()}
         onZoomIn={() => void flowRef.current?.zoomIn({ duration: 180 })}
         onZoomOut={() => void flowRef.current?.zoomOut({ duration: 180 })}
         selectedKind={selectedCardId ? "card" : selectedEdgeId ? "edge" : null}
@@ -625,7 +862,14 @@ function TimelineCanvasSurfaceInner({
       ) : null}
 
       {feedback ? (
-        <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-50 -translate-x-1/2 rounded-full border border-moss/25 bg-white/88 px-4 py-2 text-sm font-medium text-moss shadow-soft backdrop-blur">
+        <div
+          className={[
+            "pointer-events-none fixed left-1/2 z-50 -translate-x-1/2 rounded-full border border-moss/25 bg-white/88 px-4 py-2 text-sm font-medium text-moss shadow-soft backdrop-blur",
+            isChromeVisible
+              ? "bottom-[calc(env(safe-area-inset-bottom)+4.75rem)]"
+              : "bottom-[calc(env(safe-area-inset-bottom)+1.25rem)]",
+          ].join(" ")}
+        >
           {feedback}
         </div>
       ) : null}
@@ -643,13 +887,19 @@ function useEdgesStateWithCanvasEdges(edges: CanvasEdge[], selectedEdgeId: EdgeI
 
 function TimelineCanvasChrome({
   canDelete,
+  canRedo,
+  canUndo,
   entryMode,
+  isApplyingUndo,
   isChromeVisible,
   onCreate,
   onDelete,
   onFitView,
+  onOpenSettings,
+  onRedo,
   onResetView,
   onToggleChrome,
+  onUndo,
   onZoomIn,
   onZoomOut,
   selectedKind,
@@ -657,13 +907,19 @@ function TimelineCanvasChrome({
   workspaceDate,
 }: {
   canDelete: boolean;
+  canRedo: boolean;
+  canUndo: boolean;
   entryMode: "timeline" | "canvas";
+  isApplyingUndo: boolean;
   isChromeVisible: boolean;
   onCreate: () => void;
   onDelete: () => void;
   onFitView: () => void;
+  onOpenSettings: () => void;
+  onRedo: () => void;
   onResetView: () => void;
   onToggleChrome: () => void;
+  onUndo: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   selectedKind: "card" | "edge" | null;
@@ -695,10 +951,11 @@ function TimelineCanvasChrome({
         ) : null}
       </div>
 
-      <div className="fixed right-[calc(env(safe-area-inset-right)+1rem)] top-[calc(env(safe-area-inset-top)+1rem)] z-50 flex gap-2 rounded-full border border-white/70 bg-white/[0.58] p-2 shadow-glass backdrop-blur-[28px]">
+      <div className="fixed right-[calc(env(safe-area-inset-right)+0.75rem)] top-[calc(env(safe-area-inset-top)+0.75rem)] z-50 flex max-w-[calc(100vw-env(safe-area-inset-left)-env(safe-area-inset-right)-1.5rem)] flex-wrap justify-end gap-1.5 rounded-[1.75rem] border border-white/70 bg-white/[0.58] p-1.5 shadow-glass backdrop-blur-[28px] sm:right-[calc(env(safe-area-inset-right)+1rem)] sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:gap-2 sm:rounded-full sm:p-2">
         <IconButton icon="add" label="新建卡片" onClick={onCreate} />
         <IconButton icon="center_focus_strong" label="适应视图" onClick={onFitView} />
         <IconButton icon="restart_alt" label="重置视图" onClick={onResetView} />
+        <IconButton icon="palette" label="自定义主题" onClick={onOpenSettings} />
         <IconButton icon="fullscreen" label="隐藏工具 UI" onClick={onToggleChrome} />
       </div>
 
@@ -713,8 +970,23 @@ function TimelineCanvasChrome({
         />
       </div>
 
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.85rem)] left-1/2 z-50 flex -translate-x-1/2 gap-1.5 rounded-full border border-white/70 bg-white/[0.58] p-1.5 shadow-glass backdrop-blur-[28px]">
+        <IconButton
+          disabled={!canUndo || isApplyingUndo}
+          icon="undo"
+          label="撤销"
+          onClick={onUndo}
+        />
+        <IconButton
+          disabled={!canRedo || isApplyingUndo}
+          icon="redo"
+          label="重做"
+          onClick={onRedo}
+        />
+      </div>
+
       {selectedKind ? (
-        <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/70 bg-white/[0.76] px-4 py-2 text-xs font-medium text-muted shadow-soft backdrop-blur md:bottom-8">
+        <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/70 bg-white/[0.76] px-4 py-2 text-xs font-medium text-muted shadow-soft backdrop-blur md:bottom-[calc(env(safe-area-inset-bottom)+5rem)]">
           已选中{selectedKind === "edge" ? "连线" : "卡片"}，可右键打开操作菜单
         </div>
       ) : null}
@@ -968,7 +1240,7 @@ function TimelineLayer({
 }: {
   beamFocusY: number;
   createNode: (input: CreateTimelineNodeInput) => Promise<unknown>;
-  deleteNode: (id: TimelineNodeId) => Promise<void>;
+  deleteNode: (node: TimelineNode) => Promise<void>;
   error: string | null;
   isLoading: boolean;
   isNowDialogOpen: boolean;
@@ -1074,7 +1346,7 @@ function TimelineLayer({
                 <div className="ml-16" style={{ width: metrics.cardWidth }}>
                   <TimelineNodeCard
                     node={item.node}
-                    onDelete={() => deleteNode(item.node.id)}
+                    onDelete={() => deleteNode(item.node)}
                     onUpdate={(_, patch) => updateNode(item.node.id, patch)}
                   />
                 </div>

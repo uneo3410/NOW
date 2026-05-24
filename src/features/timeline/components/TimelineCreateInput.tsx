@@ -66,10 +66,10 @@ export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputPro
       onSubmit={handleSubmit}
       ref={formRef}
     >
-      <div className="ml-16 flex w-full items-center justify-between rounded-full border border-white/70 bg-white/[0.56] py-3 pl-8 pr-3 shadow-[0_18px_54px_rgba(0,64,112,0.11),inset_0_1px_0_rgba(255,255,255,0.76),inset_0_0_0_1px_rgba(255,255,255,0.44)] backdrop-blur-[44px] transition-all duration-500 hover:bg-white/[0.64]">
+      <div className="timeline-now-input-shell ml-16 flex w-full items-center justify-between rounded-full py-3 pl-8 pr-3 transition-all duration-500">
         <input
           aria-label="当下发生了什么"
-          className="min-w-0 flex-1 border-none bg-transparent text-lg font-normal leading-[1.6] text-ink outline-none placeholder:font-light placeholder:text-line focus:ring-0"
+          className="timeline-now-input-field min-w-0 flex-1 border-none bg-transparent text-lg font-normal leading-[1.6] outline-none placeholder:font-light focus:ring-0"
           id="timeline-content"
           maxLength={480}
           onChange={(event) => setContent(event.target.value)}
@@ -79,7 +79,7 @@ export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputPro
         <button
           aria-expanded={isTimeDrawerOpen}
           aria-label="选择发生时间"
-          className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-300 hover:bg-white/40 hover:text-primary"
+          className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-300 hover:bg-white/40 hover:text-[var(--timeline-now-input-button-text)]"
           onClick={(event) => {
             event.stopPropagation();
             setIsTimeDrawerOpen((value) => !value);
@@ -96,7 +96,7 @@ export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputPro
         </button>
         <button
           aria-label="钉入时间线"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white bg-white/60 text-primary shadow-sm transition-all duration-300 hover:bg-white hover:text-primary hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45 group-hover:scale-[1.03]"
+          className="timeline-now-input-button flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white shadow-sm transition-all duration-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45 group-hover:scale-[1.03]"
           disabled={isSubmitting || !content.trim()}
           type="submit"
         >

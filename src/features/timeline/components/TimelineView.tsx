@@ -10,25 +10,19 @@ import {
 } from "react";
 import type { DayWorkspace } from "../../day/types";
 import { useTimelineActions } from "../hooks/useTimelineActions";
+import { defaultTimelineTheme } from "../theme/defaultTheme";
+import { getTimelineCursorStyle, getTimelineThemeStyle } from "../theme/themeStyle";
+import type {
+  ResolvedTimelineThemeConfig,
+  TimelineBeamTheme,
+  TimelineParticleTheme,
+  TimelineThemeConfig,
+} from "../theme/types";
 import { TimelineCreateInput } from "./TimelineCreateInput";
 import { TimelineNodeCard } from "./TimelineNodeCard";
 
-export type TimelineWallpaperConfig = {
-  blur?: number;
-  dim?: number;
-  imageUrl?: string;
-  type: "default" | "image";
-};
-
-export type TimelineHaloConfig = {
-  color?: string;
-  glowColor?: string;
-  opacity?: number;
-};
-
 type TimelineViewProps = {
-  haloConfig?: TimelineHaloConfig;
-  wallpaperConfig?: TimelineWallpaperConfig;
+  themeConfig?: ResolvedTimelineThemeConfig | TimelineThemeConfig;
   workspace: DayWorkspace | null;
 };
 
@@ -64,26 +58,14 @@ const NOW_TOP = 70;
 const NODE_GAP = 34;
 const CLOSED_NOW_OFFSET = 14;
 const OPEN_NOW_OFFSET = 28;
-const BEAM_FOCUS_GAP = 12;
+const PARTICLE_DENSITY_BOOST = 1.7;
 const DOT_FOCUS_RANGE = 18;
-const DEPTH_FOCUS_RANGE = 22;
-const DEPTH_FADE_RANGE = 86;
-const DEFAULT_WALLPAPER_CONFIG: TimelineWallpaperConfig = {
-  blur: 0,
-  dim: 0,
-  type: "default",
-};
-const DEFAULT_HALO_CONFIG: Required<TimelineHaloConfig> = {
-  color: "rgba(255, 255, 255, 0.94)",
-  glowColor: "rgba(210, 250, 255, 0.46)",
-  opacity: 0.94,
-};
 
 export function TimelineView({
-  haloConfig = DEFAULT_HALO_CONFIG,
-  wallpaperConfig = DEFAULT_WALLPAPER_CONFIG,
+  themeConfig,
   workspace,
 }: TimelineViewProps) {
+  const theme = themeConfig ?? defaultTimelineTheme;
   const { createNode, deleteNode, error, isLoading, loadNodes, nodes, updateNode } =
     useTimelineActions(workspace);
   const [viewTransform, setViewTransform] = useState<ViewTransform>({ scale: 1, x: 0, y: 0 });
@@ -138,7 +120,10 @@ export function TimelineView({
     mainCanvasRef.current,
     timelineTop,
   );
-  const haloStyle = getTimelineHaloStyle(haloConfig);
+  const themeStyle = {
+    ...getTimelineThemeStyle(theme),
+    ...getTimelineCursorStyle(theme),
+  };
 
   useEffect(() => {
     void loadNodes();
@@ -327,15 +312,15 @@ export function TimelineView({
   return (
     <div
       className="relative min-h-screen overflow-hidden bg-white text-ink selection:bg-primary-soft selection:text-[#001945]"
-      style={haloStyle}
+      style={themeStyle}
     >
-      <TimelineWallpaperLayer config={wallpaperConfig} />
-      <TimelineParticleCanvas />
+      <TimelineWallpaperLayer config={theme.wallpaper} />
+      <TimelineParticleCanvas config={theme.particles} />
 
-      <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-2 rounded-full border border-white/60 bg-white/40 p-2 shadow-lg backdrop-blur-md">
+      <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-2 rounded-full border border-[var(--timeline-card-border)] bg-[var(--timeline-card-bg)] p-2 shadow-lg backdrop-blur-md">
         <button
           aria-label="放大时间线"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/60 hover:text-primary"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/60 hover:text-[var(--timeline-card-accent)]"
           onClick={() => zoomBy(0.2)}
           type="button"
         >
@@ -343,7 +328,7 @@ export function TimelineView({
         </button>
         <button
           aria-label="重置时间线视图"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/60 hover:text-primary"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/60 hover:text-[var(--timeline-card-accent)]"
           onClick={resetView}
           type="button"
         >
@@ -351,7 +336,7 @@ export function TimelineView({
         </button>
         <button
           aria-label="缩小时间线"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/60 hover:text-primary"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/60 hover:text-[var(--timeline-card-accent)]"
           onClick={() => zoomBy(-0.2)}
           type="button"
         >
@@ -377,11 +362,11 @@ export function TimelineView({
             transform: `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.scale})`,
           }}
         >
-          <TimelineBeam focusY={beamFocusY} timelineTop={timelineTop} />
+          <TimelineBeam config={theme.beam} focusY={beamFocusY} timelineTop={timelineTop} />
 
           <div className="relative z-20 h-full w-full">
             {isLoading ? (
-              <div className="absolute left-[30%] top-[42%] ml-16 w-full max-w-lg -translate-y-1/2 rounded-xl border border-white/70 bg-white/[0.48] p-6 text-center text-sm text-[#4a5160] shadow-[0_18px_54px_rgba(0,64,112,0.10),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_0_0_1px_rgba(255,255,255,0.42)] backdrop-blur-[34px]">
+              <div className="timeline-themed-card absolute left-[30%] top-[42%] ml-16 w-full max-w-lg -translate-y-1/2 p-6 text-center text-sm">
                 正在取出你的时间线。
               </div>
             ) : (
@@ -391,16 +376,16 @@ export function TimelineView({
                     <div
                       className="timeline-depth-item group absolute left-[30%] flex w-full max-w-lg items-center transition-[top,transform,opacity,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
                       key={item.key}
-                      style={getTimelineItemStyle(item.top, beamFocusY)}
+                      style={getTimelineItemStyle(item.top, beamFocusY, theme)}
                     >
-                      <div className="timeline-depth-dot absolute -left-[4px] h-[9px] w-[9px] rounded-full bg-cyan/90 ring-[3px] ring-white transition-[box-shadow,transform] duration-500">
+                      <div className="timeline-depth-dot absolute -left-[4px] h-[9px] w-[9px] rounded-full transition-[box-shadow,transform] duration-500">
                         <span aria-hidden="true" className="timeline-halo-layer" />
                       </div>
-                      <div className="ml-16 w-full cursor-default rounded-xl border border-white/70 bg-white/[0.48] p-6 text-[#4a5160] shadow-[0_18px_54px_rgba(0,64,112,0.10),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_0_0_1px_rgba(255,255,255,0.42)] backdrop-blur-[34px] transition-all duration-700 hover:-translate-y-1 hover:bg-white/[0.56] hover:shadow-[0_22px_60px_rgba(0,64,112,0.13),inset_0_1px_0_rgba(255,255,255,0.78),inset_0_0_0_1px_rgba(255,255,255,0.46)]">
-                        <div className="mb-4 text-xs font-semibold uppercase tracking-[0.1em] text-[#005f6d] opacity-90">
+                      <div className="timeline-themed-card ml-16 w-full cursor-default p-6 transition-all duration-700 hover:-translate-y-1">
+                        <div className="timeline-card-time mb-4 text-xs font-semibold uppercase tracking-[0.1em] opacity-90">
                           Empty Timeline
                         </div>
-                        <p className="text-base leading-relaxed text-[#303747]">
+                        <p className="text-base leading-relaxed">
                           点击当下，把这一刻钉住。完成的 Todo 也会沉淀到这里。
                         </p>
                       </div>
@@ -413,9 +398,9 @@ export function TimelineView({
                     <div
                       className="timeline-depth-item group absolute left-[30%] flex w-full max-w-lg items-center transition-[top,transform,opacity,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
                       key={item.key}
-                      style={getTimelineItemStyle(item.top, beamFocusY)}
+                      style={getTimelineItemStyle(item.top, beamFocusY, theme)}
                     >
-                      <div className="timeline-depth-dot absolute -left-[4px] h-[9px] w-[9px] rounded-full bg-cyan/90 ring-[3px] ring-white transition-[box-shadow,transform] duration-500">
+                      <div className="timeline-depth-dot absolute -left-[4px] h-[9px] w-[9px] rounded-full transition-[box-shadow,transform] duration-500">
                         <span aria-hidden="true" className="timeline-halo-layer" />
                       </div>
                       <div className="ml-16 w-full">
@@ -433,10 +418,10 @@ export function TimelineView({
                   <div
                     className="absolute left-[30%] top-[70%] z-30 flex w-full max-w-2xl -translate-y-1/2 items-center"
                     key={item.key}
-                    style={getNowDotStyle(beamFocusY)}
+                    style={getNowDotStyle(beamFocusY, theme)}
                   >
                     <div className="absolute right-[calc(100%+32px)] text-right">
-                      <span className="text-xs font-semibold uppercase tracking-[0.25em] text-primary opacity-90 drop-shadow-sm">
+                      <span className="timeline-now-label text-xs font-semibold uppercase tracking-[0.25em] opacity-90 drop-shadow-sm">
                         Now
                       </span>
                     </div>
@@ -444,10 +429,8 @@ export function TimelineView({
                       aria-expanded={isNowDialogOpen}
                       aria-label={isNowDialogOpen ? "收起 Now 输入框" : "展开 Now 输入框"}
                       className={[
-                        "timeline-now-node absolute -left-[7.5px] h-[16px] w-[16px] rounded-full bg-primary ring-[4px] ring-white transition-[box-shadow,opacity,transform] duration-300 active:scale-[0.94] active:opacity-80 active:[animation-play-state:paused]",
-                        isNowDialogOpen
-                          ? "shadow-[0_0_38px_10px_rgba(0,109,248,0.46)]"
-                          : "shadow-[0_0_32px_8px_rgba(0,109,248,0.4)]",
+                        "timeline-now-node absolute -left-[7.5px] h-[16px] w-[16px] rounded-full transition-[box-shadow,opacity,transform] duration-300 active:scale-[0.94] active:opacity-80 active:[animation-play-state:paused]",
+                        isNowDialogOpen ? "is-open" : "",
                       ].join(" ")}
                       onClick={() => setIsNowDialogOpen((value) => !value)}
                       type="button"
@@ -458,7 +441,7 @@ export function TimelineView({
                     {error ? (
                       <p
                         className={[
-                          "absolute left-16 top-[calc(100%+76px)] w-full rounded-xl border border-ember/25 bg-white/65 px-4 py-3 text-sm leading-6 text-ember shadow-[0_16px_56px_rgba(0,104,117,0.08)] backdrop-blur-[28px] transition-all duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+                          "timeline-themed-card absolute left-16 top-[calc(100%+76px)] w-full px-4 py-3 text-sm leading-6 text-ember transition-all duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
                           isNowDialogOpen
                             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
                             : "pointer-events-none translate-y-2 scale-[0.96] opacity-0",
@@ -478,9 +461,9 @@ export function TimelineView({
   );
 }
 
-function TimelineWallpaperLayer({ config }: { config: TimelineWallpaperConfig }) {
-  const blur = config.blur ?? DEFAULT_WALLPAPER_CONFIG.blur ?? 0;
-  const dim = config.dim ?? DEFAULT_WALLPAPER_CONFIG.dim ?? 0;
+function TimelineWallpaperLayer({ config }: { config: ResolvedTimelineThemeConfig["wallpaper"] }) {
+  const blur = config.blur;
+  const dim = config.dim;
   const hasImageWallpaper = config.type === "image" && Boolean(config.imageUrl);
   const hasOverlay = blur > 0 || dim > 0;
 
@@ -491,6 +474,8 @@ function TimelineWallpaperLayer({ config }: { config: TimelineWallpaperConfig })
           className="absolute inset-[-4%] bg-cover bg-center"
           style={{
             backgroundImage: `url("${config.imageUrl}")`,
+            backgroundPosition: config.position,
+            backgroundSize: config.fit,
           }}
         />
       ) : (
@@ -510,11 +495,19 @@ function TimelineWallpaperLayer({ config }: { config: TimelineWallpaperConfig })
   );
 }
 
-function TimelineBeam({ focusY, timelineTop }: { focusY: number; timelineTop: number }) {
-  const upperEnd = clamp(focusY - BEAM_FOCUS_GAP, timelineTop, 100);
-  const lowerStart = clamp(focusY + BEAM_FOCUS_GAP, timelineTop, 100);
+function TimelineBeam({
+  config,
+  focusY,
+  timelineTop,
+}: {
+  config: TimelineBeamTheme;
+  focusY: number;
+  timelineTop: number;
+}) {
+  const upperEnd = clamp(focusY - config.focusGap, timelineTop, 100);
+  const lowerStart = clamp(focusY + config.focusGap, timelineTop, 100);
   const beamStyle = {
-    "--beam-focus-gap": `${BEAM_FOCUS_GAP}%`,
+    "--beam-focus-gap": `${config.focusGap}%`,
     "--beam-focus-y": `${focusY}%`,
   } as CSSProperties;
 
@@ -523,7 +516,9 @@ function TimelineBeam({ focusY, timelineTop }: { focusY: number; timelineTop: nu
       <div
         className="absolute bottom-0 left-[30%] z-10 w-[1px] bg-gradient-to-b from-transparent via-cyan to-transparent opacity-95"
         style={{
-          boxShadow: "0 0 6px rgba(0, 227, 253, 0.28)",
+          background: `linear-gradient(to bottom, transparent, ${config.lineColor}, transparent)`,
+          boxShadow: `0 0 ${Math.round(10 * config.glowIntensity)}px ${config.glowColor}`,
+          opacity: config.lineOpacity,
           top: `${timelineTop}%`,
         }}
       />
@@ -559,28 +554,30 @@ function getTimelineCardTop(index: number, total: number, isNowDialogOpen: boole
   return NOW_TOP - distanceFromNow;
 }
 
-function getTimelineHaloStyle(config: TimelineHaloConfig): CSSProperties {
-  return {
-    "--timeline-halo-color": config.color ?? DEFAULT_HALO_CONFIG.color,
-    "--timeline-halo-glow-color": config.glowColor ?? DEFAULT_HALO_CONFIG.glowColor,
-    "--timeline-halo-opacity": String(config.opacity ?? DEFAULT_HALO_CONFIG.opacity),
-  } as CSSProperties;
-}
-
-function getTimelineItemStyle(top: number, focusY: number): CSSProperties {
+function getTimelineItemStyle(
+  top: number,
+  focusY: number,
+  theme: ResolvedTimelineThemeConfig,
+): CSSProperties {
   const distance = Math.abs(top - focusY);
-  const depth = clamp((distance - DEPTH_FOCUS_RANGE) / DEPTH_FADE_RANGE, 0, 1);
+  const depth = theme.depth.enabled
+    ? clamp((distance - theme.depth.focusRange) / theme.depth.fadeRange, 0, 1)
+    : 0;
 
   return {
-    ...getTimelineDotStyle(top, focusY),
-    "--timeline-depth-blur": `${(depth * 0.85).toFixed(2)}px`,
-    "--timeline-depth-opacity": (1 - depth * 0.14).toFixed(3),
-    "--timeline-depth-scale": (1 - depth * 0.018).toFixed(3),
+    ...getTimelineDotStyle(top, focusY, theme),
+    "--timeline-depth-blur": `${(depth * theme.depth.maxBlur).toFixed(2)}px`,
+    "--timeline-depth-opacity": (1 - depth * theme.depth.maxOpacityLoss).toFixed(3),
+    "--timeline-depth-scale": (1 - depth * theme.depth.maxScaleLoss).toFixed(3),
     top: `${top}%`,
   } as CSSProperties;
 }
 
-function getTimelineDotStyle(top: number, focusY: number): CSSProperties {
+function getTimelineDotStyle(
+  top: number,
+  focusY: number,
+  theme: ResolvedTimelineThemeConfig,
+): CSSProperties {
   const focus = getTimelineFocusIntensity(top, focusY);
   const glowSize = 16 + focus * 28;
   const secondaryGlowSize = 8 + focus * 20;
@@ -588,28 +585,26 @@ function getTimelineDotStyle(top: number, focusY: number): CSSProperties {
   return {
     "--timeline-halo-glow-size": `${(12 + focus * 18).toFixed(1)}px`,
     "--timeline-halo-strength": (0.76 + focus * 0.24).toFixed(3),
-    "--timeline-dot-scale": (1 + focus * 0.58).toFixed(3),
+    "--timeline-dot-color": theme.halo.dotColor,
+    "--timeline-dot-scale": (1 + focus * theme.halo.dotFocusScale).toFixed(3),
     "--timeline-dot-shadow": [
-      `0 0 ${glowSize.toFixed(1)}px rgba(0, 227, 253, ${0.72 + focus * 0.2})`,
-      `0 0 ${secondaryGlowSize.toFixed(1)}px rgba(210, 250, 255, ${0.18 + focus * 0.2})`,
+      `0 0 ${glowSize.toFixed(1)}px ${theme.beam.lineColor}`,
+      `0 0 ${secondaryGlowSize.toFixed(1)}px ${theme.halo.glowColor}`,
     ].join(", "),
   } as CSSProperties;
 }
 
-function getNowDotStyle(focusY: number): CSSProperties {
+function getNowDotStyle(focusY: number, theme: ResolvedTimelineThemeConfig): CSSProperties {
   const focus = getTimelineFocusIntensity(NOW_TOP, focusY);
 
   return {
     "--timeline-halo-glow-size": `${(16 + focus * 22).toFixed(1)}px`,
     "--timeline-halo-strength": (0.78 + focus * 0.22).toFixed(3),
+    "--timeline-now-dot-color": theme.halo.nowDotColor,
     "--timeline-dot-scale": (1 + focus * 0.5).toFixed(3),
     "--timeline-dot-shadow": [
-      `0 0 ${(32 + focus * 24).toFixed(1)}px ${(8 + focus * 8).toFixed(1)}px rgba(0, 109, 248, ${
-        0.4 + focus * 0.18
-      })`,
-      `0 0 ${(16 + focus * 22).toFixed(1)}px rgba(210, 250, 255, ${
-        0.14 + focus * 0.24
-      })`,
+      `0 0 ${(32 + focus * 24).toFixed(1)}px ${(8 + focus * 8).toFixed(1)}px ${theme.halo.nowDotColor}`,
+      `0 0 ${(16 + focus * 22).toFixed(1)}px ${theme.halo.glowColor}`,
     ].join(", "),
   } as CSSProperties;
 }
@@ -659,10 +654,14 @@ function getViewportCenterY() {
   return window.innerHeight / 2;
 }
 
-function TimelineParticleCanvas() {
+function TimelineParticleCanvas({ config }: { config: TimelineParticleTheme }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (!config.enabled) {
+      return undefined;
+    }
+
     const canvas = canvasRef.current;
 
     if (!canvas) {
@@ -700,13 +699,15 @@ function TimelineParticleCanvas() {
       y: number;
 
       constructor(canvasWidth: number, canvasHeight: number) {
-        this.alpha = Math.random() * 0.2 + 0.14;
+        this.alpha =
+          Math.random() * (config.alphaRange[1] - config.alphaRange[0]) + config.alphaRange[0];
         this.drift = Math.random() * Math.PI * 2;
         this.phase = Math.random() * Math.PI * 2;
-        this.phaseSpeed = Math.random() * 0.0012 + 0.0007;
-        this.size = Math.random() * 1.9 + 1.1;
-        this.speedX = (Math.random() - 0.5) * 0.16;
-        this.speedY = (Math.random() - 0.5) * 0.16;
+        this.phaseSpeed = (Math.random() * 0.0012 + 0.0007) * getSpeedRatio(config.speed);
+        this.size =
+          Math.random() * (config.sizeRange[1] - config.sizeRange[0]) + config.sizeRange[0];
+        this.speedX = (Math.random() - 0.5) * config.speed;
+        this.speedY = (Math.random() - 0.5) * config.speed;
         this.x = Math.random() * canvasWidth;
         this.y = Math.random() * canvasHeight;
       }
@@ -716,16 +717,16 @@ function TimelineParticleCanvas() {
         const dy = this.y - pointer.y;
         const distance = Math.hypot(dx, dy);
         const pointerAge = time - pointer.lastMovedAt;
-        const pointerRadius = pointerAge < 520 ? 132 : 0;
+        const pointerRadius = pointerAge < 520 ? config.pointerRadius : 0;
 
         if (pointerRadius > 0 && distance > 0 && distance < pointerRadius) {
           const force = ((pointerRadius - distance) / pointerRadius) ** 2;
-          this.speedX += (dx / distance) * force * 1.65;
-          this.speedY += (dy / distance) * force * 1.65;
+          this.speedX += (dx / distance) * force * config.pointerForce;
+          this.speedY += (dy / distance) * force * config.pointerForce;
         }
 
-        this.speedX += Math.cos(this.drift + time * 0.00018) * 0.004;
-        this.speedY += Math.sin(this.drift + time * 0.00016) * 0.004;
+        this.speedX += Math.cos(this.drift + time * 0.00018) * 0.025 * config.speed;
+        this.speedY += Math.sin(this.drift + time * 0.00016) * 0.025 * config.speed;
         this.x += this.speedX;
         this.y += this.speedY;
         this.speedX *= 0.965;
@@ -745,21 +746,28 @@ function TimelineParticleCanvas() {
       }
 
       draw(time: number) {
-        const breath = 0.72 + Math.sin(this.phase + time * this.phaseSpeed) * 0.28;
+        const breath = 1 - config.breathAmplitude + Math.sin(this.phase + time * this.phaseSpeed) * config.breathAmplitude;
         const alpha = this.alpha * breath;
         const radius = this.size * (0.9 + breath * 0.22);
 
         drawingContext.beginPath();
         drawingContext.arc(this.x, this.y, radius, 0, Math.PI * 2);
-        drawingContext.fillStyle = `rgba(0, 176, 204, ${alpha})`;
-        drawingContext.shadowBlur = 8;
-        drawingContext.shadowColor = `rgba(0, 227, 253, ${alpha * 0.58})`;
+        drawingContext.globalAlpha = alpha;
+        drawingContext.fillStyle = config.color;
+        drawingContext.shadowBlur = config.glow;
+        drawingContext.shadowColor = config.glowColor;
         drawingContext.fill();
+        drawingContext.globalAlpha = 1;
       }
     }
 
     function syncParticleCount() {
-      const targetCount = clamp(Math.round((width * height) / 17000), 42, 105);
+      const maxCount = width < 768 ? config.mobileMaxCount : config.maxCount;
+      const targetCount = clamp(
+        Math.round(((width * height) / config.density) * PARTICLE_DENSITY_BOOST),
+        42,
+        maxCount,
+      );
 
       while (particles.length < targetCount) {
         particles.push(new Particle(width, height));
@@ -826,7 +834,11 @@ function TimelineParticleCanvas() {
       window.removeEventListener("mousemove", handlePointerMove);
       window.removeEventListener("touchmove", handleTouchMove);
     };
-  }, []);
+  }, [config]);
+
+  if (!config.enabled) {
+    return null;
+  }
 
   return <canvas aria-hidden="true" className="timeline-particle-canvas" ref={canvasRef} />;
 }
@@ -847,4 +859,12 @@ function isInteractiveTarget(target: EventTarget) {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function getSpeedRatio(speed: number): number {
+  if (speed <= 0) {
+    return 0;
+  }
+
+  return speed / 0.16;
 }

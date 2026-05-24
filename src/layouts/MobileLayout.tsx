@@ -8,15 +8,22 @@ type ActiveSurface = "home" | "timeline" | "canvas" | "capture" | "reports" | "s
 type MobileLayoutProps = PropsWithChildren<{
   activeSurface: ActiveSurface;
   date: LocalDateString;
+  onOpenSettings: () => void;
 }>;
 
 const tabItems = [
   { href: "/", key: "home", label: "今日" },
   { href: "/timeline", key: "timeline", label: "时间线" },
   { href: "/canvas", key: "canvas", label: "画布" },
+  { href: "/settings", key: "settings", label: "设置" },
 ] as const;
 
-export function MobileLayout({ activeSurface, children, date }: MobileLayoutProps) {
+export function MobileLayout({
+  activeSurface,
+  children,
+  date,
+  onOpenSettings,
+}: MobileLayoutProps) {
   const isQuickCaptureOpen = useUiStore((state) => state.isQuickCaptureOpen);
   const setQuickCaptureOpen = useUiStore((state) => state.setQuickCaptureOpen);
   const isTimeline = activeSurface === "timeline";
@@ -58,23 +65,22 @@ export function MobileLayout({ activeSurface, children, date }: MobileLayoutProp
           isTimeline ? "hidden" : "",
         ].join(" ")}
       >
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
           {tabItems.map((item) => {
             const href =
-              item.key === "home" ? item.href : `${item.href}?date=${date}`;
+              item.key === "timeline" || item.key === "canvas"
+                ? `${item.href}?date=${date}`
+                : item.href;
             const isActive = activeSurface === item.key;
 
             return (
-              <a
-                className={[
-                  "flex min-h-11 items-center justify-center rounded-full text-xs font-medium transition",
-                  isActive ? "bg-ink text-surface" : "text-muted hover:bg-white/60 hover:text-ink",
-                ].join(" ")}
+              <MobileTabItem
                 href={href}
+                isActive={isActive}
                 key={item.key}
-              >
-                {item.label}
-              </a>
+                label={item.label}
+                onClick={item.key === "settings" ? onOpenSettings : undefined}
+              />
             );
           })}
           <button
@@ -87,5 +93,36 @@ export function MobileLayout({ activeSurface, children, date }: MobileLayoutProp
         </div>
       </nav>
     </div>
+  );
+}
+
+function MobileTabItem({
+  href,
+  isActive,
+  label,
+  onClick,
+}: {
+  href: string;
+  isActive: boolean;
+  label: string;
+  onClick?: () => void;
+}) {
+  const className = [
+    "flex min-h-11 items-center justify-center rounded-full text-xs font-medium transition",
+    isActive ? "bg-ink text-surface" : "text-muted hover:bg-white/60 hover:text-ink",
+  ].join(" ");
+
+  if (onClick) {
+    return (
+      <button className={className} onClick={onClick} type="button">
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <a className={className} href={href}>
+      {label}
+    </a>
   );
 }

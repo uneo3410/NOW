@@ -52,8 +52,8 @@ export function TimelineNodeCard({ node, onDelete, onUpdate }: TimelineNodeCardP
   }
 
   return (
-    <article className="group relative cursor-default rounded-xl border border-white/70 bg-white/[0.48] p-6 shadow-[0_18px_54px_rgba(0,64,112,0.10),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_0_0_1px_rgba(255,255,255,0.42)] backdrop-blur-[34px] transition-all duration-700 hover:-translate-y-1 hover:bg-white/[0.56] hover:shadow-[0_22px_60px_rgba(0,64,112,0.13),inset_0_1px_0_rgba(255,255,255,0.78),inset_0_0_0_1px_rgba(255,255,255,0.46)]">
-      <div className="mb-4 text-xs font-semibold uppercase tracking-[0.1em] text-[#005f6d] opacity-90">
+    <article className="timeline-themed-card group relative cursor-default p-6 transition-all duration-700 hover:-translate-y-1">
+      <div className="timeline-card-time mb-4 text-xs font-semibold uppercase tracking-[0.1em] opacity-90">
         <time dateTime={node.happenedAt}>{formatTimelineStamp(node.happenedAt)}</time>
       </div>
 
@@ -90,13 +90,13 @@ export function TimelineNodeCard({ node, onDelete, onUpdate }: TimelineNodeCardP
         </div>
       ) : (
         <>
-          <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-[#303747]">
+          <p className="whitespace-pre-wrap break-words text-base leading-relaxed">
             {node.content}
           </p>
           <div className="absolute right-3 top-3 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
             <button
               aria-label="编辑节点"
-              className="grid size-8 place-items-center rounded-full bg-white/70 text-xs font-semibold text-primary shadow-sm transition hover:bg-white"
+              className="timeline-card-action grid size-8 place-items-center rounded-full text-xs font-semibold shadow-sm transition"
               onClick={() => setIsEditing(true)}
               type="button"
             >

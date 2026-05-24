@@ -1,5 +1,6 @@
-import { useEffect, type PropsWithChildren } from "react";
+import { useEffect, useState, type PropsWithChildren } from "react";
 import { useCurrentDay } from "../features/day/hooks/useCurrentDay";
+import { TimelineThemeEditorWindow } from "../features/settings/components/TimelineThemeEditorWindow";
 import { useViewportKind } from "../hooks/useViewportKind";
 import { useUiStore } from "../stores/uiStore";
 import { DesktopLayout } from "./DesktopLayout";
@@ -15,6 +16,7 @@ export function AppShell({ children, pathname }: AppShellProps) {
   const date = useCurrentDay();
   const viewportKind = useViewportKind();
   const activeSurface = getActiveSurface(pathname);
+  const [isThemeEditorOpen, setIsThemeEditorOpen] = useState(false);
   const setActiveSurface = useUiStore((state) => state.setActiveSurface);
   const setViewportKind = useUiStore((state) => state.setViewportKind);
 
@@ -26,18 +28,33 @@ export function AppShell({ children, pathname }: AppShellProps) {
     setViewportKind(viewportKind);
   }, [setViewportKind, viewportKind]);
 
+  useEffect(() => {
+    if (pathname === "/settings") {
+      setIsThemeEditorOpen(true);
+    }
+  }, [pathname]);
+
+  const openThemeEditor = () => setIsThemeEditorOpen(true);
+  const closeThemeEditor = () => setIsThemeEditorOpen(false);
+
   if (viewportKind === "mobile") {
     return (
-      <MobileLayout activeSurface={activeSurface} date={date}>
-        {children}
-      </MobileLayout>
+      <>
+        <MobileLayout activeSurface={activeSurface} date={date} onOpenSettings={openThemeEditor}>
+          {children}
+        </MobileLayout>
+        <TimelineThemeEditorWindow isOpen={isThemeEditorOpen} onClose={closeThemeEditor} />
+      </>
     );
   }
 
   return (
-    <DesktopLayout activeSurface={activeSurface} date={date}>
-      {children}
-    </DesktopLayout>
+    <>
+      <DesktopLayout activeSurface={activeSurface} date={date} onOpenSettings={openThemeEditor}>
+        {children}
+      </DesktopLayout>
+      <TimelineThemeEditorWindow isOpen={isThemeEditorOpen} onClose={closeThemeEditor} />
+    </>
   );
 }
 

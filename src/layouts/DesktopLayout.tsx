@@ -6,15 +6,22 @@ type ActiveSurface = "home" | "timeline" | "canvas" | "capture" | "reports" | "s
 type DesktopLayoutProps = PropsWithChildren<{
   activeSurface: ActiveSurface;
   date: LocalDateString;
+  onOpenSettings: () => void;
 }>;
 
 const navItems = [
   { href: "/", key: "home", label: "首页", shortLabel: "今" },
   { href: "/timeline", key: "timeline", label: "时间线", shortLabel: "线" },
   { href: "/canvas", key: "canvas", label: "画布", shortLabel: "画" },
+  { href: "/settings", key: "settings", label: "设置", shortLabel: "设" },
 ] as const;
 
-export function DesktopLayout({ activeSurface, children, date }: DesktopLayoutProps) {
+export function DesktopLayout({
+  activeSurface,
+  children,
+  date,
+  onOpenSettings,
+}: DesktopLayoutProps) {
   const [isRailOpen, setIsRailOpen] = useState(false);
   const isTimeline = activeSurface === "timeline";
 
@@ -55,22 +62,21 @@ export function DesktopLayout({ activeSurface, children, date }: DesktopLayoutPr
 
             <nav className="mt-5 grid gap-2">
               {navItems.map((item) => {
-                const href = item.key === "home" ? item.href : `${item.href}?date=${date}`;
+                const href =
+                  item.key === "timeline" || item.key === "canvas"
+                    ? `${item.href}?date=${date}`
+                    : item.href;
                 const isActive = activeSurface === item.key;
 
                 return (
-                  <a
-                    className={[
-                      "rounded-full px-4 py-3 text-sm font-medium transition",
-                      isActive
-                        ? "bg-primary text-white shadow-soft"
-                        : "text-muted hover:bg-white/70 hover:text-ink",
-                    ].join(" ")}
+                  <NavItem
                     href={href}
+                    isActive={isActive}
                     key={item.key}
-                  >
-                    {item.label}
-                  </a>
+                    label={item.label}
+                    onClick={item.key === "settings" ? onOpenSettings : undefined}
+                    variant="expanded"
+                  />
                 );
               })}
             </nav>
@@ -78,26 +84,68 @@ export function DesktopLayout({ activeSurface, children, date }: DesktopLayoutPr
         ) : (
           <nav className="mt-3 grid gap-2">
             {navItems.map((item) => {
-              const href = item.key === "home" ? item.href : `${item.href}?date=${date}`;
+              const href =
+                item.key === "timeline" || item.key === "canvas"
+                  ? `${item.href}?date=${date}`
+                  : item.href;
               const isActive = activeSurface === item.key;
 
               return (
-                <a
-                  className={[
-                    "grid size-10 place-items-center rounded-full text-xs font-semibold transition",
-                    isActive ? "bg-primary text-white shadow-soft" : "text-primary hover:bg-white/70",
-                  ].join(" ")}
+                <NavItem
                   href={href}
+                  isActive={isActive}
                   key={item.key}
+                  label={item.shortLabel}
+                  onClick={item.key === "settings" ? onOpenSettings : undefined}
                   title={item.label}
-                >
-                  {item.shortLabel}
-                </a>
+                  variant="compact"
+                />
               );
             })}
           </nav>
         )}
       </aside>
     </div>
+  );
+}
+
+function NavItem({
+  href,
+  isActive,
+  label,
+  onClick,
+  title,
+  variant,
+}: {
+  href: string;
+  isActive: boolean;
+  label: string;
+  onClick?: () => void;
+  title?: string;
+  variant: "compact" | "expanded";
+}) {
+  const className =
+    variant === "expanded"
+      ? [
+          "rounded-full px-4 py-3 text-left text-sm font-medium transition",
+          isActive ? "bg-primary text-white shadow-soft" : "text-muted hover:bg-white/70 hover:text-ink",
+        ].join(" ")
+      : [
+          "grid size-10 place-items-center rounded-full text-xs font-semibold transition",
+          isActive ? "bg-primary text-white shadow-soft" : "text-primary hover:bg-white/70",
+        ].join(" ");
+
+  if (onClick) {
+    return (
+      <button className={className} onClick={onClick} title={title} type="button">
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <a className={className} href={href} title={title}>
+      {label}
+    </a>
   );
 }

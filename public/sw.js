@@ -1,7 +1,7 @@
-const CACHE_VERSION = "now-timeline-v1";
+const CACHE_VERSION = "now-timeline-v2";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/icon.svg", "/icons/maskable-icon.svg"];
+const APP_SHELL = ["/", "/timeline", "/manifest.webmanifest", "/icons/icon.svg", "/icons/maskable-icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

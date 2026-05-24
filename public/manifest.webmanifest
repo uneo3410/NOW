@@ -2,7 +2,7 @@
   "name": "Now 时间线",
   "short_name": "Now",
   "description": "用卡片计划今天，用时间线保存发生过的事。",
-  "start_url": "/?source=pwa",
+  "start_url": "/timeline?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

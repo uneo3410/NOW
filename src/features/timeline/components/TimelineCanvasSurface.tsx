@@ -810,7 +810,7 @@ function TimelineCanvasContextMenu({
   if (isMobile) {
     return (
       <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-        <div className="rounded-[1.75rem] border border-white/70 bg-white/[0.78] p-2 shadow-[0_18px_60px_rgba(0,50,88,0.2)] backdrop-blur-[34px]">
+        <div className="max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] overflow-y-auto rounded-[1.75rem] border border-white/70 bg-white/[0.78] p-2 shadow-[0_18px_60px_rgba(0,50,88,0.2)] backdrop-blur-[34px]">
           <div className="mb-2 flex justify-center">
             <button
               aria-label="关闭菜单"
@@ -936,7 +936,9 @@ function TimelineCanvasComposer({
   if (isMobile) {
     return (
       <div className="fixed inset-x-0 bottom-0 z-[80] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-        {panel}
+        <div className="max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] overflow-y-auto">
+          {panel}
+        </div>
       </div>
     );
   }
@@ -1456,7 +1458,7 @@ function edgesToFlowEdges(edges: CanvasEdge[], selectedEdgeId: EdgeId | null): F
 function getTimelineMetrics(size: ViewportSize, viewportKind: "mobile" | "desktop"): TimelineMetrics {
   const isMobile = viewportKind === "mobile";
   const axisX = isMobile
-    ? clamp(size.width * 0.34, 86, 150)
+    ? clamp(size.width * 0.15, 46, 68)
     : clamp(size.width * 0.3, 280, 430);
   const nowY = isMobile
     ? clamp(size.height * 0.6, 340, 540)
@@ -1464,11 +1466,11 @@ function getTimelineMetrics(size: ViewportSize, viewportKind: "mobile" | "deskto
 
   return {
     axisX,
-    cardWidth: isMobile ? Math.min(440, Math.max(280, size.width - 112)) : 560,
+    cardWidth: isMobile ? Math.min(440, Math.max(238, size.width - axisX - 86)) : 560,
     closedNowOffset: isMobile ? 118 : 130,
     focusRange: isMobile ? 150 : 180,
     nodeGap: isMobile ? 210 : 260,
-    nowWidth: isMobile ? Math.max(420, size.width - axisX - 32) : 680,
+    nowWidth: isMobile ? Math.min(360, Math.max(238, size.width - axisX - 86)) : 680,
     nowY,
     openNowOffset: isMobile ? 238 : 285,
   };

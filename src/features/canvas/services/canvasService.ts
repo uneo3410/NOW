@@ -1,23 +1,24 @@
 import {
   create as createEdgeRecord,
-  listByDayId as listEdgesByDayId,
+  list as listEdgeRecords,
   put as putEdgeRecord,
   remove as removeEdge,
-  removeByCardIdAndDayId,
+  removeByCardId,
 } from "../../../db/repositories/edgeRepository";
 import { put as putCardRecord } from "../../../db/repositories/cardRepository";
+import { get as getSetting, set as setSetting } from "../../../db/repositories/settingRepository";
 import type { Card, CreateCardInput, Edge } from "../../cards/types";
 import type { DayWorkspace } from "../../day/types";
 import type { CardId, EdgeId } from "../../../types/id";
 import {
   createCard,
   deleteCard,
-  listCardsByDayId,
+  listCards,
   updateCard,
 } from "../../cards/services/cardService";
 import { nowISO } from "../../../utils/date";
 import { createId } from "../../../utils/id";
-import type { CanvasPosition } from "../types";
+import type { CanvasPosition, CanvasViewport } from "../types";
 
 type CreateCanvasEdgeInput = {
   fromCardId: CardId;
@@ -26,20 +27,25 @@ type CreateCanvasEdgeInput = {
   toHandleId?: string;
 };
 
-export async function loadCanvasByDay(
-  workspace: DayWorkspace,
-): Promise<{ cards: Card[]; edges: Edge[] }> {
-  const [cards, edges] = await Promise.all([
-    listCardsByDayId(workspace.id),
-    listEdgesByDayId(workspace.id),
+const GLOBAL_CANVAS_VIEWPORT_SETTING_KEY = "canvas.viewport.global";
+
+export async function loadGlobalCanvas(): Promise<{
+  cards: Card[];
+  edges: Edge[];
+  viewport: CanvasViewport | null;
+}> {
+  const [cards, edges, viewport] = await Promise.all([
+    listCards(),
+    listEdgeRecords(),
+    loadGlobalCanvasViewport(),
   ]);
-  const visibleCards = cards.filter((card) => !card.completedAt && !card.archivedAt);
+  const visibleCards = cards;
   const visibleCardIds = new Set(visibleCards.map((card) => card.id));
   const visibleEdges = edges.filter(
     (edge) => visibleCardIds.has(edge.fromCardId) && visibleCardIds.has(edge.toCardId),
   );
 
-  return { cards: visibleCards, edges: visibleEdges };
+  return { cards: visibleCards, edges: visibleEdges, viewport };
 }
 
 export async function createCanvasCard(
@@ -65,8 +71,8 @@ export async function updateCanvasCardContent(cardId: CardId, content: string): 
   });
 }
 
-export async function deleteCanvasCard(cardId: CardId, workspace: DayWorkspace): Promise<void> {
-  await removeByCardIdAndDayId(cardId, workspace.id);
+export async function deleteCanvasCard(cardId: CardId): Promise<void> {
+  await removeByCardId(cardId);
   await deleteCard(cardId);
 }
 
@@ -98,4 +104,43 @@ export async function createCanvasEdge(
 
 export async function deleteCanvasEdge(edgeId: EdgeId): Promise<void> {
   await removeEdge(edgeId);
+}
+
+export async function loadGlobalCanvasViewport(): Promise<CanvasViewport | null> {
+  const record = await getSetting(GLOBAL_CANVAS_VIEWPORT_SETTING_KEY);
+  return parseCanvasViewport(record?.value);
+}
+
+export async function saveGlobalCanvasViewport(viewport: CanvasViewport): Promise<CanvasViewport> {
+  await setSetting(GLOBAL_CANVAS_VIEWPORT_SETTING_KEY, JSON.stringify(viewport));
+  return viewport;
+}
+
+function parseCanvasViewport(value: string | undefined): CanvasViewport | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<CanvasViewport>;
+
+    if (
+      typeof parsed.x === "number" &&
+      typeof parsed.y === "number" &&
+      typeof parsed.zoom === "number" &&
+      Number.isFinite(parsed.x) &&
+      Number.isFinite(parsed.y) &&
+      Number.isFinite(parsed.zoom)
+    ) {
+      return {
+        x: parsed.x,
+        y: parsed.y,
+        zoom: parsed.zoom,
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }

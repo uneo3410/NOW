@@ -1,4 +1,5 @@
 import type { Card } from "../../cards/types";
+import type { DayWorkspace } from "../../day/types";
 import type { TimelineNode } from "../../timeline/types";
 import type { CardId } from "../../../types/id";
 import { getCardById, updateCard } from "../../cards/services/cardService";
@@ -6,33 +7,41 @@ import {
   createTimelineNodeFromTodoCard,
   listTimelineNodesBySourceCardId,
 } from "../../timeline/services/timelineService";
-import { nowISO } from "../../../utils/date";
+import { toISOWithLocalDateTime } from "../../../utils/date";
 
 type CompleteTodoCardResult = {
   card: Card;
+  createdTimelineNode: boolean;
   timelineNode: TimelineNode;
 };
 
-const completionRequests = new Map<CardId, Promise<CompleteTodoCardResult>>();
+const completionRequests = new Map<string, Promise<CompleteTodoCardResult>>();
 
-export async function completeTodoCard(cardId: CardId): Promise<CompleteTodoCardResult> {
-  const pendingRequest = completionRequests.get(cardId);
+export async function completeTodoCard(
+  cardId: CardId,
+  workspace: DayWorkspace,
+): Promise<CompleteTodoCardResult> {
+  const requestKey = `${cardId}:${workspace.id}`;
+  const pendingRequest = completionRequests.get(requestKey);
 
   if (pendingRequest) {
     return pendingRequest;
   }
 
-  const request = completeTodoCardOnce(cardId);
-  completionRequests.set(cardId, request);
+  const request = completeTodoCardOnce(cardId, workspace);
+  completionRequests.set(requestKey, request);
 
   try {
     return await request;
   } finally {
-    completionRequests.delete(cardId);
+    completionRequests.delete(requestKey);
   }
 }
 
-async function completeTodoCardOnce(cardId: CardId): Promise<CompleteTodoCardResult> {
+async function completeTodoCardOnce(
+  cardId: CardId,
+  workspace: DayWorkspace,
+): Promise<CompleteTodoCardResult> {
   const card = await getCardById(cardId);
 
   if (!card) {
@@ -46,9 +55,20 @@ async function completeTodoCardOnce(cardId: CardId): Promise<CompleteTodoCardRes
   const existingNode = await findExistingTodoTimelineNode(card.id);
 
   if (card.completedAt) {
+    if (existingNode) {
+      return {
+        card,
+        createdTimelineNode: false,
+        timelineNode: existingNode,
+      };
+    }
+
+    const timelineNode = await createTimelineNodeFromTodoCard(card, card.completedAt, workspace);
+
     return {
       card,
-      timelineNode: existingNode ?? (await createTimelineNodeFromTodoCard(card, card.completedAt)),
+      createdTimelineNode: true,
+      timelineNode,
     };
   }
 
@@ -56,24 +76,26 @@ async function completeTodoCardOnce(cardId: CardId): Promise<CompleteTodoCardRes
     const completedAt = existingNode.happenedAt;
     const updatedCard = await updateCard(card.id, {
       completedAt,
-      archivedAt: completedAt,
+      archivedAt: undefined,
     });
 
     return {
       card: updatedCard,
+      createdTimelineNode: false,
       timelineNode: existingNode,
     };
   }
 
-  const completedAt = nowISO();
-  const timelineNode = await createTimelineNodeFromTodoCard(card, completedAt);
+  const completedAt = toISOWithLocalDateTime(workspace.date);
+  const timelineNode = await createTimelineNodeFromTodoCard(card, completedAt, workspace);
   const updatedCard = await updateCard(card.id, {
     completedAt,
-    archivedAt: completedAt,
+    archivedAt: undefined,
   });
 
   return {
     card: updatedCard,
+    createdTimelineNode: true,
     timelineNode,
   };
 }

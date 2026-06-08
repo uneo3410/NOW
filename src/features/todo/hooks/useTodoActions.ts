@@ -1,22 +1,26 @@
 import { useCallback, useState } from "react";
 import { useCardStore } from "../../../stores/cardStore";
-import { useEdgeStore } from "../../../stores/edgeStore";
 import { useTimelineStore } from "../../../stores/timelineStore";
 import { useUiStore } from "../../../stores/uiStore";
 import type { CardId } from "../../../types/id";
+import type { DayWorkspace } from "../../day/types";
 import { completeTodoCard } from "../services/todoService";
 
 export function useTodoActions() {
   const [pendingTodoIds, setPendingTodoIds] = useState<Set<CardId>>(() => new Set());
-  const removeCard = useCardStore((state) => state.removeCard);
+  const updateCard = useCardStore((state) => state.updateCard);
   const setCardError = useCardStore((state) => state.setError);
-  const removeEdgesByCardId = useEdgeStore((state) => state.removeEdgesByCardId);
   const addTimelineNode = useTimelineStore((state) => state.addNode);
   const setFeedback = useUiStore((state) => state.setFeedback);
 
   const completeTodo = useCallback(
-    async (cardId: CardId) => {
+    async (cardId: CardId, workspace: DayWorkspace | null) => {
       if (pendingTodoIds.has(cardId)) {
+        return null;
+      }
+
+      if (!workspace) {
+        setCardError("当前日期工作区还没有准备好。");
         return null;
       }
 
@@ -24,10 +28,13 @@ export function useTodoActions() {
       setCardError(null);
 
       try {
-        const result = await completeTodoCard(cardId);
-        removeCard(result.card.id);
-        removeEdgesByCardId(result.card.id);
-        addTimelineNode(result.timelineNode);
+        const result = await completeTodoCard(cardId, workspace);
+        updateCard(result.card.id, result.card);
+
+        if (result.createdTimelineNode && result.timelineNode.date === workspace.date) {
+          addTimelineNode(result.timelineNode);
+        }
+
         setFeedback("已保存到时间线");
         window.setTimeout(() => {
           setFeedback(null);
@@ -47,10 +54,9 @@ export function useTodoActions() {
     [
       addTimelineNode,
       pendingTodoIds,
-      removeCard,
-      removeEdgesByCardId,
       setCardError,
       setFeedback,
+      updateCard,
     ],
   );
 

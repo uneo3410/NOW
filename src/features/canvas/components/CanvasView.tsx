@@ -47,6 +47,7 @@ function CanvasViewInner({ workspace }: CanvasViewInnerProps) {
     handleSelectionChange,
     isLoading,
     load,
+    persistedViewport,
     saveCardPosition,
     saveViewport,
     selectedCardId,
@@ -59,22 +60,22 @@ function CanvasViewInner({ workspace }: CanvasViewInnerProps) {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (workspace?.canvasViewport && flowRef.current) {
-      flowRef.current.setViewport(workspace.canvasViewport, { duration: 0 });
-    }
-  }, [workspace]);
-
   const nodes = useMemo<Array<FlowNode>>(
     () =>
       cards.map((card) => ({
         id: card.id,
         type: "card",
         position: { x: card.x, y: card.y },
-        data: { card },
+        data: { card, workspace },
       })),
-    [cards],
+    [cards, workspace],
   );
+
+  useEffect(() => {
+    if (persistedViewport && flowRef.current) {
+      flowRef.current.setViewport(persistedViewport, { duration: 0 });
+    }
+  }, [persistedViewport]);
 
   const mappedEdges = useMemo<Array<FlowEdge>>(
     () =>
@@ -141,8 +142,8 @@ function CanvasViewInner({ workspace }: CanvasViewInnerProps) {
           onEdgesDelete={handleEdgesDelete}
           onInit={(instance) => {
             flowRef.current = instance;
-            if (workspace?.canvasViewport) {
-              instance.setViewport(workspace.canvasViewport, { duration: 0 });
+            if (persistedViewport) {
+              instance.setViewport(persistedViewport, { duration: 0 });
             }
           }}
           onMoveEnd={(_, viewport) => {

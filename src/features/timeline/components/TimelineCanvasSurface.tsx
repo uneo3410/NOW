@@ -55,6 +55,7 @@ import {
   deleteTimelineNode as deleteTimelineNodeRecord,
   restoreTimelineNode,
 } from "../services/timelineService";
+import { DateHeatmapRail } from "./DateHeatmapRail";
 import { TimelineCreateInput } from "./TimelineCreateInput";
 import { TimelineNodeCard } from "./TimelineNodeCard";
 
@@ -157,6 +158,7 @@ function TimelineCanvasSurfaceInner({
     handleSelectionChange,
     isLoading: isCanvasLoading,
     load,
+    persistedViewport,
     saveCardPosition,
     saveViewport,
     selectedCardId,
@@ -172,7 +174,11 @@ function TimelineCanvasSurfaceInner({
     nodes,
     updateNode,
   } = useTimelineActions(workspace);
-  const [flowNodes, setFlowNodes, onNodesChange] = useNodesStateWithCards(cards, selectedCardId);
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesStateWithCards(
+    cards,
+    selectedCardId,
+    workspace,
+  );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesStateWithCanvasEdges(
     edges,
     selectedEdgeId,
@@ -184,6 +190,7 @@ function TimelineCanvasSurfaceInner({
   const [menuState, setMenuState] = useState<CanvasMenuState | null>(null);
   const [creationDraft, setCreationDraft] = useState<CreationDraft | null>(null);
   const flowRef = useRef<ReactFlowInstance<FlowNode, FlowEdge> | null>(null);
+  const hasAppliedPersistedViewportRef = useRef(false);
   const longPressRef = useRef<LongPressState | null>(null);
   const metrics = useMemo(
     () => getTimelineMetrics(viewportSize, viewportKind),
@@ -209,8 +216,8 @@ function TimelineCanvasSurfaceInner({
   }, [load, loadNodes]);
 
   useEffect(() => {
-    setFlowNodes(cardsToFlowNodes(cards, selectedCardId));
-  }, [cards, selectedCardId, setFlowNodes]);
+    setFlowNodes(cardsToFlowNodes(cards, selectedCardId, workspace));
+  }, [cards, selectedCardId, setFlowNodes, workspace]);
 
   useEffect(() => {
     setFlowEdges(edgesToFlowEdges(edges, selectedEdgeId));
@@ -237,6 +244,19 @@ function TimelineCanvasSurfaceInner({
   useEffect(() => {
     setBeamFocusY((current) => current || metrics.nowY);
   }, [metrics.nowY]);
+
+  useEffect(() => {
+    if (
+      !persistedViewport ||
+      !flowRef.current ||
+      hasAppliedPersistedViewportRef.current
+    ) {
+      return;
+    }
+
+    hasAppliedPersistedViewportRef.current = true;
+    void flowRef.current.setViewport(persistedViewport, { duration: 0 });
+  }, [persistedViewport]);
 
   useEffect(() => {
     setTimelineCanvasChromeVisible(isChromeVisible);
@@ -329,7 +349,7 @@ function TimelineCanvasSurfaceInner({
         await restoreCanvasCard(card);
       },
       undo: async () => {
-        await deleteCanvasCard(card.id, workspace);
+        await deleteCanvasCard(card.id);
       },
     });
 
@@ -454,7 +474,7 @@ function TimelineCanvasSurfaceInner({
       pushUndoAction({
         label: "删除卡片",
         redo: async () => {
-          await deleteCanvasCard(cardSnapshot.id, workspace);
+          await deleteCanvasCard(cardSnapshot.id);
         },
         undo: async () => {
           await restoreCanvasCard(cardSnapshot);
@@ -482,29 +502,22 @@ function TimelineCanvasSurfaceInner({
     }
 
     const previousCard = { ...selectedCard };
-    const existingTodoNodeIds = new Set(
-      nodes
-        .filter((node) => node.source === "todo-card" && node.sourceCardId === selectedCard.id)
-        .map((node) => node.id),
-    );
-    const result = await completeTodo(selectedCard.id);
+    const result = await completeTodo(selectedCard.id, workspace);
 
     if (result) {
-      const createdTimelineNode = !existingTodoNodeIds.has(result.timelineNode.id);
-
       pushUndoAction({
         label: "完成 Todo",
         redo: async () => {
           await restoreCanvasCard(result.card);
 
-          if (createdTimelineNode) {
+          if (result.createdTimelineNode) {
             await restoreTimelineNode(result.timelineNode);
           }
         },
         undo: async () => {
           await restoreCanvasCard(previousCard);
 
-          if (createdTimelineNode) {
+          if (result.createdTimelineNode) {
             await deleteTimelineNodeRecord(result.timelineNode.id);
           }
         },
@@ -561,7 +574,7 @@ function TimelineCanvasSurfaceInner({
       label: cardSnapshots.length > 0 ? "删除卡片" : "删除连线",
       redo: async () => {
         await Promise.all(edgeSnapshots.map((edge) => deleteCanvasEdge(edge.id)));
-        await Promise.all(cardSnapshots.map((card) => deleteCanvasCard(card.id, workspace)));
+        await Promise.all(cardSnapshots.map((card) => deleteCanvasCard(card.id)));
       },
       undo: async () => {
         await Promise.all(cardSnapshots.map((card) => restoreCanvasCard(card)));
@@ -703,11 +716,11 @@ function TimelineCanvasSurfaceInner({
         className="timeline-canvas-flow relative z-10"
         colorMode="light"
         connectionMode={ConnectionMode.Loose}
-        defaultViewport={workspace?.canvasViewport ?? getInitialViewport(viewportKind)}
+        defaultViewport={persistedViewport ?? getInitialViewport(viewportKind)}
         deleteKeyCode={["Backspace", "Delete"]}
         edges={flowEdges}
         edgesReconnectable={false}
-        fitView={entryMode === "canvas" && cards.length > 0 && !workspace?.canvasViewport}
+        fitView={entryMode === "canvas" && cards.length > 0 && !persistedViewport}
         maxZoom={2.4}
         minZoom={0.35}
         nodes={flowNodes}
@@ -720,8 +733,9 @@ function TimelineCanvasSurfaceInner({
         onEdgesDelete={handleEdgesDelete}
         onInit={(instance) => {
           flowRef.current = instance;
-          if (workspace?.canvasViewport) {
-            instance.setViewport(workspace.canvasViewport, { duration: 0 });
+          if (persistedViewport) {
+            hasAppliedPersistedViewportRef.current = true;
+            instance.setViewport(persistedViewport, { duration: 0 });
           } else if (entryMode === "timeline") {
             instance.setCenter(metrics.axisX + 240, metrics.nowY, { duration: 0, zoom: 1 });
           }
@@ -762,6 +776,7 @@ function TimelineCanvasSurfaceInner({
           <TimelineLayer
             beamFocusY={beamFocusY || metrics.nowY}
             createNode={createTimelineNodeWithUndo}
+            currentDate={workspace?.date}
             deleteNode={handleDeleteTimelineNode}
             error={timelineError}
             isLoading={isTimelineLoading}
@@ -803,6 +818,8 @@ function TimelineCanvasSurfaceInner({
         title={surfaceTitle}
         workspaceDate={workspace?.date}
       />
+
+      {isChromeVisible ? <DateHeatmapRail currentDate={workspace?.date} /> : null}
 
       {menuState ? (
         <TimelineCanvasContextMenu
@@ -877,8 +894,12 @@ function TimelineCanvasSurfaceInner({
   );
 }
 
-function useNodesStateWithCards(cards: Card[], selectedCardId: CardId | null) {
-  return useNodesState<FlowNode>(cardsToFlowNodes(cards, selectedCardId));
+function useNodesStateWithCards(
+  cards: Card[],
+  selectedCardId: CardId | null,
+  workspace: DayWorkspace | null,
+) {
+  return useNodesState<FlowNode>(cardsToFlowNodes(cards, selectedCardId, workspace));
 }
 
 function useEdgesStateWithCanvasEdges(edges: CanvasEdge[], selectedEdgeId: EdgeId | null) {
@@ -1228,6 +1249,7 @@ function TimelineCanvasComposer({
 function TimelineLayer({
   beamFocusY,
   createNode,
+  currentDate,
   deleteNode,
   error,
   isLoading,
@@ -1240,6 +1262,7 @@ function TimelineLayer({
 }: {
   beamFocusY: number;
   createNode: (input: CreateTimelineNodeInput) => Promise<unknown>;
+  currentDate?: string;
   deleteNode: (node: TimelineNode) => Promise<void>;
   error: string | null;
   isLoading: boolean;
@@ -1382,7 +1405,11 @@ function TimelineLayer({
               >
                 <span aria-hidden="true" className="timeline-halo-layer" />
               </button>
-              <TimelineCreateInput isOpen={isNowDialogOpen} onCreate={createNode} />
+              <TimelineCreateInput
+                currentDate={currentDate}
+                isOpen={isNowDialogOpen}
+                onCreate={createNode}
+              />
               {error ? (
                 <p
                   className={[
@@ -1697,9 +1724,13 @@ function TimelineParticleCanvas({ config }: { config: TimelineParticleTheme }) {
   return <canvas aria-hidden="true" className="timeline-particle-canvas" ref={canvasRef} />;
 }
 
-function cardsToFlowNodes(cards: Card[], selectedCardId: CardId | null): FlowNode[] {
+function cardsToFlowNodes(
+  cards: Card[],
+  selectedCardId: CardId | null,
+  workspace: DayWorkspace | null,
+): FlowNode[] {
   return cards.map((card) => ({
-    data: { card },
+    data: { card, workspace },
     id: card.id,
     position: { x: card.x, y: card.y },
     selected: selectedCardId === card.id,

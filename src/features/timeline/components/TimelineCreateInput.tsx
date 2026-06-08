@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { fromDateTimeLocalValue, toDateTimeLocalValue } from "../../../utils/date";
+import {
+  fromDateTimeLocalValue,
+  toDateTimeLocalValue,
+  toDateTimeLocalValueForDate,
+} from "../../../utils/date";
+import type { LocalDateString } from "../../day/types";
 import type { CreateTimelineNodeInput } from "../types";
 
 type TimelineCreateInputProps = {
+  currentDate?: LocalDateString;
   isOpen: boolean;
   onCreate: (input: CreateTimelineNodeInput) => Promise<unknown>;
 };
 
-export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputProps) {
+export function TimelineCreateInput({
+  currentDate,
+  isOpen,
+  onCreate,
+}: TimelineCreateInputProps) {
   const [content, setContent] = useState("");
-  const [happenedAt, setHappenedAt] = useState(toDateTimeLocalValue());
+  const [happenedAt, setHappenedAt] = useState(() => getDefaultHappenedAt(currentDate));
   const [isTimeDrawerOpen, setIsTimeDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -34,6 +44,10 @@ export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputPro
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    setHappenedAt(getDefaultHappenedAt(currentDate));
+  }, [currentDate]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -49,7 +63,7 @@ export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputPro
         happenedAt: happenedAt ? fromDateTimeLocalValue(happenedAt) : undefined,
       });
       setContent("");
-      setHappenedAt(toDateTimeLocalValue());
+      setHappenedAt(getDefaultHappenedAt(currentDate));
     } finally {
       setIsSubmitting(false);
     }
@@ -134,4 +148,8 @@ export function TimelineCreateInput({ isOpen, onCreate }: TimelineCreateInputPro
       </div>
     </form>
   );
+}
+
+function getDefaultHappenedAt(currentDate?: LocalDateString): string {
+  return currentDate ? toDateTimeLocalValueForDate(currentDate) : toDateTimeLocalValue();
 }

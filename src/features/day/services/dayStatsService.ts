@@ -29,7 +29,7 @@ export async function getDayActivityStats(
         timelineNodeCount: timelineNodes.length,
         cardCount: cards.length,
         completedTodoCount,
-        activityCount: timelineNodes.length + cards.length + completedTodoCount,
+        activityCount: timelineNodes.length,
       };
     }),
   );

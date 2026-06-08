@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { OnConnect, OnEdgesDelete, OnNodesDelete, OnSelectionChangeFunc } from "@xyflow/react";
 import type { Card, CreateCardInput } from "../../cards/types";
 import type { DayWorkspace } from "../../day/types";
@@ -6,19 +6,20 @@ import type { CardId, EdgeId } from "../../../types/id";
 import { useCanvasStore } from "../../../stores/canvasStore";
 import { useCardStore } from "../../../stores/cardStore";
 import { useEdgeStore } from "../../../stores/edgeStore";
-import { updateDayWorkspaceViewport } from "../../day/services/dayWorkspaceService";
 import {
   createCanvasCard,
   createCanvasEdge,
   deleteCanvasCard,
   deleteCanvasEdge,
-  loadCanvasByDay,
+  loadGlobalCanvas,
+  saveGlobalCanvasViewport,
   updateCanvasCardContent,
   updateCardPosition,
 } from "../services/canvasService";
-import type { CanvasPosition } from "../types";
+import type { CanvasPosition, CanvasViewport } from "../types";
 
 export function useCanvasActions(workspace: DayWorkspace | null) {
+  const [persistedViewport, setPersistedViewport] = useState<CanvasViewport | null>(null);
   const cards = useCardStore((state) => state.cards);
   const isLoading = useCardStore((state) => state.isLoading);
   const error = useCardStore((state) => state.error);
@@ -42,26 +43,23 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
   const clearSelection = useCanvasStore((state) => state.clearSelection);
 
   const load = useCallback(async () => {
-    if (!workspace) {
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const canvas = await loadCanvasByDay(workspace);
+      const canvas = await loadGlobalCanvas();
       setCards(canvas.cards);
       setEdges(canvas.edges);
-      if (workspace.canvasViewport) {
-        setViewport(workspace.canvasViewport);
+      setPersistedViewport(canvas.viewport);
+      if (canvas.viewport) {
+        setViewport(canvas.viewport);
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
       setLoading(false);
     }
-  }, [setCards, setEdges, setError, setLoading, setViewport, workspace]);
+  }, [setCards, setEdges, setError, setLoading, setViewport]);
 
   const createCard = useCallback(
     async (input: CreateCardInput) => {
@@ -113,16 +111,12 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
 
   const deleteCard = useCallback(
     async (cardId: CardId) => {
-      if (!workspace) {
-        return;
-      }
-
-      await deleteCanvasCard(cardId, workspace);
+      await deleteCanvasCard(cardId);
       removeEdgesByCardId(cardId);
       removeCard(cardId);
       clearSelection();
     },
-    [clearSelection, removeCard, removeEdgesByCardId, workspace],
+    [clearSelection, removeCard, removeEdgesByCardId],
   );
 
   const connectCards = useCallback<OnConnect>(
@@ -204,12 +198,10 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
   const saveViewport = useCallback(
     async (nextViewport: { x: number; y: number; zoom: number }) => {
       setViewport(nextViewport);
-
-      if (workspace) {
-        await updateDayWorkspaceViewport(workspace, nextViewport);
-      }
+      setPersistedViewport(nextViewport);
+      await saveGlobalCanvasViewport(nextViewport);
     },
-    [setViewport, workspace],
+    [setViewport],
   );
 
   function getNextCardPosition(): Pick<Card, "x" | "y"> {
@@ -235,6 +227,7 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
     handleSelectionChange,
     isLoading,
     load,
+    persistedViewport,
     saveCardPosition,
     selectedCardId,
     selectedEdgeId,

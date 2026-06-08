@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CURRENT_TIMELINE_DATE_CHANGE_EVENT } from "../features/day/hooks/useCurrentDay";
 import { getRoute } from "./routes";
 import { AppShell } from "../layouts/AppShell";
 
@@ -6,12 +7,17 @@ export function App() {
   const [pathname, setPathname] = useState(() => getInitialPathname());
 
   useEffect(() => {
-    function handlePopState() {
+    function handleLocationChange() {
       setPathname(getAppPathname(window.location.pathname));
     }
 
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", handleLocationChange);
+    window.addEventListener(CURRENT_TIMELINE_DATE_CHANGE_EVENT, handleLocationChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener(CURRENT_TIMELINE_DATE_CHANGE_EVENT, handleLocationChange);
+    };
   }, []);
 
   useEffect(() => {

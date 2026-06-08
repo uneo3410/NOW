@@ -437,7 +437,11 @@ export function TimelineView({
                     >
                       <span aria-hidden="true" className="timeline-halo-layer" />
                     </button>
-                    <TimelineCreateInput isOpen={isNowDialogOpen} onCreate={createNode} />
+                    <TimelineCreateInput
+                      currentDate={workspace?.date}
+                      isOpen={isNowDialogOpen}
+                      onCreate={createNode}
+                    />
                     {error ? (
                       <p
                         className={[

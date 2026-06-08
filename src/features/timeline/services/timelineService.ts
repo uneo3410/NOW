@@ -13,7 +13,7 @@ import type { Card } from "../../cards/types";
 import type { CreateTimelineNodeInput, TimelineNode } from "../types";
 import type { DayWorkspace, LocalDateString } from "../../day/types";
 import type { CardId, TimelineNodeId } from "../../../types/id";
-import { nowISO, sortByNewest } from "../../../utils/date";
+import { nowISO, sortByNewest, toISOWithLocalDateTime } from "../../../utils/date";
 import { createId } from "../../../utils/id";
 
 export async function listTimelineNodes(): Promise<TimelineNode[]> {
@@ -51,7 +51,7 @@ export async function createTimelineNode(
   workspace: DayWorkspace,
 ): Promise<TimelineNode> {
   const timestamp = nowISO();
-  const happenedAt = input.happenedAt ?? timestamp;
+  const happenedAt = input.happenedAt ?? toISOWithLocalDateTime(workspace.date);
   const node: TimelineNode = {
     id: createId("node"),
     dayId: workspace.id,
@@ -71,6 +71,7 @@ export async function createTimelineNode(
 export async function createTimelineNodeFromTodoCard(
   card: Card,
   completedAt: string,
+  workspace: DayWorkspace,
 ): Promise<TimelineNode> {
   const content = card.content.trim();
 
@@ -80,8 +81,8 @@ export async function createTimelineNodeFromTodoCard(
 
   const node: TimelineNode = {
     id: createId("node"),
-    dayId: card.dayId,
-    date: card.date,
+    dayId: workspace.id,
+    date: workspace.date,
     content,
     happenedAt: completedAt,
     createdAt: completedAt,

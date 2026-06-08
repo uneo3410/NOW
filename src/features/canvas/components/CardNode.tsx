@@ -1,15 +1,17 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Card } from "../../cards/types";
+import type { DayWorkspace } from "../../day/types";
 import { useTodoActions } from "../../todo/hooks/useTodoActions";
 import { ThoughtCardNode } from "./ThoughtCardNode";
 import { TodoCardNode } from "./TodoCardNode";
 
 type CardNodeData = {
   card: Card;
+  workspace: DayWorkspace | null;
 };
 
 export function CardNode({ data, selected }: NodeProps) {
-  const { card } = data as CardNodeData;
+  const { card, workspace } = data as CardNodeData;
   const { completeTodo, pendingTodoIds } = useTodoActions();
   const isTodoPending = pendingTodoIds.has(card.id);
 
@@ -44,7 +46,7 @@ export function CardNode({ data, selected }: NodeProps) {
             card={card}
             isPending={isTodoPending}
             onComplete={() => {
-              void completeTodo(card.id);
+              void completeTodo(card.id, workspace);
             }}
           />
         ) : (

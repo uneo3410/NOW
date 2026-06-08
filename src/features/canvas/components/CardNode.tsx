@@ -23,6 +23,11 @@ export function CardNode({ data, selected }: NodeProps) {
         selected ? "is-selected ring-4 ring-moss/20" : "",
         isTodoPending ? "scale-95 opacity-60" : "",
       ].join(" ")}
+      style={{
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+      }}
     >
       {[
         ["top", Position.Top],

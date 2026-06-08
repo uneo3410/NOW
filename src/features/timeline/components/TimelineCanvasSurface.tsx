@@ -83,6 +83,11 @@ type CreationDraft = {
   kind: "timeline" | "todo" | "thought" | "edit-card";
 };
 
+type LongPressTarget =
+  | { kind: "blank" }
+  | { id: CardId; kind: "node" }
+  | { id: EdgeId; kind: "edge" };
+
 type TimelineMetrics = {
   axisX: number;
   cardWidth: number;
@@ -103,6 +108,7 @@ type LongPressState = {
   clientX: number;
   clientY: number;
   pointerId: number;
+  target: LongPressTarget;
   timerId: number;
 };
 
@@ -305,6 +311,49 @@ function TimelineCanvasSurfaceInner({
       flowPosition: getFlowPosition(clientX, clientY),
       kind: "selection",
     });
+  }
+
+  function startLongPress(
+    event: ReactPointerEvent<Element> | PointerEvent,
+    target: LongPressTarget,
+  ) {
+    if (event.pointerType !== "touch" || !event.isPrimary) {
+      return;
+    }
+
+    clearLongPress();
+
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    const pointerId = event.pointerId;
+
+    const timerId = window.setTimeout(() => {
+      longPressRef.current = null;
+
+      if (target.kind === "node") {
+        setSelectedCardId(target.id);
+        setSelectedEdgeId(null);
+        openSelectionMenu(clientX, clientY);
+        return;
+      }
+
+      if (target.kind === "edge") {
+        setSelectedEdgeId(target.id);
+        setSelectedCardId(null);
+        openSelectionMenu(clientX, clientY);
+        return;
+      }
+
+      openBlankMenu(clientX, clientY);
+    }, LONG_PRESS_DELAY_MS);
+
+    longPressRef.current = {
+      clientX,
+      clientY,
+      pointerId,
+      target,
+      timerId,
+    };
   }
 
   function closeMenu() {
@@ -640,6 +689,7 @@ function TimelineCanvasSurfaceInner({
     event.preventDefault();
     event.stopPropagation();
     setSelectedCardId(node.id as CardId);
+    setSelectedEdgeId(null);
     openSelectionMenu(event.clientX, event.clientY);
   }
 
@@ -647,34 +697,38 @@ function TimelineCanvasSurfaceInner({
     event.preventDefault();
     event.stopPropagation();
     setSelectedEdgeId(edge.id as EdgeId);
+    setSelectedCardId(null);
     openSelectionMenu(event.clientX, event.clientY);
   }
 
   function handleSurfacePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     updateBeamFocusFromClientY(event.clientY);
 
-    if (event.pointerType !== "touch" || isInteractiveSurfaceTarget(event.target)) {
+    if (event.pointerType !== "touch") {
       return;
     }
 
-    clearLongPress();
-    const timerId = window.setTimeout(() => {
-      longPressRef.current = null;
-      openBlankMenu(event.clientX, event.clientY);
-    }, LONG_PRESS_DELAY_MS);
+    if (!event.isPrimary) {
+      clearLongPress();
+      return;
+    }
 
-    longPressRef.current = {
-      clientX: event.clientX,
-      clientY: event.clientY,
-      pointerId: event.pointerId,
-      timerId,
-    };
+    const target = getLongPressTarget(event.target);
+
+    if (target) {
+      startLongPress(event, target);
+    }
   }
 
   function handleSurfacePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     updateBeamFocusFromClientY(event.clientY);
 
     const longPress = longPressRef.current;
+
+    if (event.pointerType === "touch" && !event.isPrimary) {
+      clearLongPress();
+      return;
+    }
 
     if (!longPress || longPress.pointerId !== event.pointerId) {
       return;
@@ -1940,6 +1994,40 @@ function isInteractiveSurfaceTarget(target: EventTarget) {
       ),
     )
   );
+}
+
+function getLongPressTarget(target: EventTarget): LongPressTarget | null {
+  if (!(target instanceof Element)) {
+    return { kind: "blank" };
+  }
+
+  if (target.closest("button, input, textarea, select, a, label")) {
+    return null;
+  }
+
+  if (target.closest(".react-flow__handle, .canvas-card-handle")) {
+    return null;
+  }
+
+  const nodeElement = target.closest(".react-flow__node");
+  const nodeId = nodeElement?.getAttribute("data-id");
+
+  if (nodeId) {
+    return { id: nodeId as CardId, kind: "node" };
+  }
+
+  const edgeElement = target.closest(".react-flow__edge");
+  const edgeId = edgeElement?.getAttribute("data-id");
+
+  if (edgeId) {
+    return { id: edgeId as EdgeId, kind: "edge" };
+  }
+
+  if (isInteractiveSurfaceTarget(target)) {
+    return null;
+  }
+
+  return { kind: "blank" };
 }
 
 function clamp(value: number, min: number, max: number): number {

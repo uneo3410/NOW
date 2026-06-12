@@ -7,7 +7,7 @@ import {
 } from "../../../db/repositories/edgeRepository";
 import { put as putCardRecord } from "../../../db/repositories/cardRepository";
 import { get as getSetting, set as setSetting } from "../../../db/repositories/settingRepository";
-import type { Card, CreateCardInput, Edge } from "../../cards/types";
+import type { Card, CardStyle, CreateCardInput, Edge } from "../../cards/types";
 import type { DayWorkspace } from "../../day/types";
 import type { CardId, EdgeId } from "../../../types/id";
 import {
@@ -68,6 +68,12 @@ export async function updateCardPosition(
 export async function updateCanvasCardContent(cardId: CardId, content: string): Promise<Card> {
   return updateCard(cardId, {
     content: content.trim(),
+  });
+}
+
+export async function updateCanvasCardStyle(cardId: CardId, style: CardStyle): Promise<Card> {
+  return updateCard(cardId, {
+    style,
   });
 }
 

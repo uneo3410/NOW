@@ -1,0 +1,297 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "验证并收尾全局画布持久化",
+        "description": "在 Sticky Note 开发前确认 Phase 7 的数据边界：画布卡片、连线、viewport 是全局持久的，时间线节点仍按当前日期隔离。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "审计并在必要时调整 `src/features/canvas/services/canvasService.ts`、`src/features/canvas/hooks/useCanvasActions.ts`、`src/features/timeline/components/TimelineCanvasSurface.tsx`、`src/features/day/hooks/useCurrentDay.ts`、`src/features/timeline/components/DateHeatmapRail.tsx`、`src/features/day/services/dayStatsService.ts`。`loadGlobalCanvas()` 必须全局读取 cards/edges；删除卡片必须全局删除关联 edge；viewport 必须使用 `canvas.viewport.global` settings key；切换日期只重新加载 timeline nodes，不能隐藏或清空 canvas cards/edges。",
+        "testStrategy": "运行 `npm run build`。手动验收：在一个日期创建 thought + todo + edge，刷新后仍存在；切换到另一个日期后画布仍存在；在第二个日期创建 timeline node，切回第一个日期后只切换 timeline 内容，画布不变。",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "审计全局画布加载和删除语义",
+            "description": "确认 canvas cards/edges 全局加载，并且删除卡片会跨日期删除所有关联 edge。",
+            "dependencies": [],
+            "details": "检查 service/repository 是否使用 `list()` 和 `removeByCardId()`，避免继续使用 day-scoped 的读取或删除。",
+            "status": "done",
+            "testStrategy": "删除一张带有跨日期来源 edge 的卡片，确认不会残留孤儿 edge。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T07:24:18.453Z"
+          },
+          {
+            "id": 2,
+            "title": "审计时间线日期切换",
+            "description": "确认日期切换会更新 URL 状态，并只重新加载当前日期的 timeline nodes。",
+            "dependencies": [],
+            "details": "检查 `setCurrentTimelineDate`、`useCurrentDay`、`useDayWorkspace`、`useTimelineActions` 的行为。",
+            "status": "done",
+            "testStrategy": "通过 `DateHeatmapRail` 切换日期，验证 URL、timeline 内容和画布持久性。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T07:24:18.472Z"
+          },
+          {
+            "id": 3,
+            "title": "审计全局 viewport 持久化",
+            "description": "确认 React Flow viewport 从全局 settings 恢复，而不是跟随 day workspace。",
+            "dependencies": [],
+            "details": "确认 `loadGlobalCanvasViewport()` 和 `saveGlobalCanvasViewport()` 使用 settings，并且 UI 只在合适时机应用一次持久化 viewport。",
+            "status": "done",
+            "testStrategy": "平移/缩放画布后刷新，确认恢复相同 viewport。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T07:24:18.483Z"
+          }
+        ],
+        "updatedAt": "2026-06-09T07:24:18.483Z"
+      },
+      {
+        "id": "2",
+        "title": "扩展 Card model 支持 sticky 样式和未来 assets",
+        "description": "新增 `sticky` card type 和可选样式字段，同时避免破坏现有 IndexedDB 数据。",
+        "status": "done",
+        "dependencies": [
+          "1"
+        ],
+        "priority": "high",
+        "details": "更新 `src/features/cards/types.ts`，让 `CardType` 包含 `sticky`。新增 `CardStyle` 类型，MVP variant 包括 `paper`、`glass`、`photo`、`tape`，并支持可选 `color`、`backgroundImageId`。扩展 `CreateCardInput`，允许创建时传入 style。更新 `cardService.createCard`、`updateCard` 和相关调用点以保留可选 style。现有 thought/todo 记录没有 style 时必须继续有效。除非引入新索引或新表，否则不要改 Dexie 表名或做破坏性 migration。",
+        "testStrategy": "运行 `npm run typecheck` 和 `npm run build`。验证现有 thought/todo 创建仍能通过编译；验证手动创建 sticky card 记录后，create/update/list 能完整保留 style。",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "新增 CardStyle 和 sticky 类型定义",
+            "description": "在共享 card 类型模块中定义 sticky 相关类型。",
+            "dependencies": [],
+            "details": "添加 `CardType = \"thought\" | \"todo\" | \"sticky\"`、`CardStyleVariant`、`CardStyle`。`Card.style` 保持可选，确保向后兼容。",
+            "status": "done",
+            "testStrategy": "对所有 `CardType` 引用运行 typecheck。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T07:28:17.887Z"
+          },
+          {
+            "id": 2,
+            "title": "让 create/update service 持久化 style",
+            "description": "把可选 style 数据贯穿 card 创建和更新流程。",
+            "dependencies": [
+              1
+            ],
+            "details": "更新 `CreateCardInput`、`cardService.createCard`、canvas creation helpers、undo restore 路径，以及需要的 store patch。",
+            "status": "done",
+            "testStrategy": "创建带 style 的 sticky input，确认 repository list 返回同样的 style。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T07:28:17.902Z"
+          },
+          {
+            "id": 3,
+            "title": "保持 thought/todo 行为稳定",
+            "description": "确认新类型不会改变 todo 完成流程或 thought 渲染行为。",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "审计 `todoService`、`useTodoActions`、`CardNode`、`CardEditor`、`QuickCapture`、`TimelineCanvasSurface` 中对 card type 的假设。",
+            "status": "done",
+            "testStrategy": "完成一个 todo card，验证仍只创建一个按日期归属的 timeline node。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T07:28:17.906Z"
+          }
+        ],
+        "updatedAt": "2026-06-09T07:28:17.906Z"
+      },
+      {
+        "id": "3",
+        "title": "实现 Sticky Note UI MVP",
+        "description": "把 sticky cards 作为一等画布材料加入创建和渲染流程，但暂不做图片上传或图片编辑。",
+        "status": "done",
+        "dependencies": [
+          "2"
+        ],
+        "priority": "high",
+        "details": "新增 `src/features/canvas/components/StickyCardNode.tsx`，并在 `CardNode` 中路由 `card.type === \"sticky\"`。更新 `CardTypeToggle`、`CardEditor`、`QuickCapture`、`TimelineCanvasSurface` 的右键菜单/composer，让用户可以创建 sticky cards。Sticky cards 必须支持现有文本编辑、拖拽、连线、删除、undo/redo restore 和持久化。视觉上要像贴在画布上的材料，但本任务不要实现图片上传/图片编辑。",
+        "testStrategy": "运行 `npm run build`。从 toolbar/card editor 和 timeline-canvas 右键菜单创建 sticky cards；验证编辑、移动、连线、删除、撤销/重做、刷新、切换日期都正常。",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "新增 StickyCardNode 渲染组件",
+            "description": "创建独立 sticky card renderer，提供 MVP 视觉样式。",
+            "dependencies": [],
+            "details": "组件只负责视觉展示和文本换行。缺少 `style` 时应使用默认 paper variant。",
+            "status": "done",
+            "testStrategy": "分别渲染无 style 和各个 MVP variant。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:36:38.382Z"
+          },
+          {
+            "id": 2,
+            "title": "把 sticky 接入卡片创建入口",
+            "description": "在 editor、quick capture、context menu 中暴露 sticky card type。",
+            "dependencies": [
+              1
+            ],
+            "details": "更新 `CardTypeToggle` 三选项布局、placeholder、label、context menu action、composer title/placeholder、creation draft type 和 undo label。",
+            "status": "done",
+            "testStrategy": "从所有支持入口创建 sticky card。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:36:38.393Z"
+          },
+          {
+            "id": 3,
+            "title": "验证 sticky 画布行为",
+            "description": "确认 sticky cards 能参与普通 canvas 行为。",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Sticky cards 必须可选择、可拖拽、可连线、可删除、可通过 undo/redo 恢复，并且刷新/切换日期后仍存在。",
+            "status": "done",
+            "testStrategy": "执行手动 canvas 行为 checklist，并运行 build。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:36:38.396Z"
+          }
+        ],
+        "updatedAt": "2026-06-09T08:36:38.396Z"
+      },
+      {
+        "id": "4",
+        "title": "为 sticky 增加 variant 和颜色样式控制",
+        "description": "允许用户修改 sticky note 的视觉样式，但仍不引入图片 assets。",
+        "status": "done",
+        "dependencies": [
+          "3"
+        ],
+        "priority": "medium",
+        "details": "为选中的 sticky card 增加紧凑的样式编辑入口。可以放在 context menu、composer 或小型 selected-card panel，但必须符合现有 UI 密度。支持 `paper`、`glass`、`photo`、`tape` variant 和小色板。样式变更通过 card update service 持久化，并立即反映到 Zustand state。字体/边框/纹理保持克制，避免破坏现有视觉系统。",
+        "testStrategy": "运行 `npm run build`。修改 sticky variant/color，刷新和切换日期后确认样式仍存在。验证 thought/todo 不显示无关 sticky 控件。",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "设计样式默认值和 class 映射",
+            "description": "为 sticky variant 和 color 定义稳定的视觉映射。",
+            "dependencies": [],
+            "details": "尽量用 TypeScript helper，而不是到处散落临时 class。保持卡片尺寸稳定、文本可读。",
+            "status": "done",
+            "testStrategy": "渲染足够多的 variant/color 组合，检查可读性和尺寸稳定性。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:40:41.004Z"
+          },
+          {
+            "id": 2,
+            "title": "实现 sticky 样式编辑器",
+            "description": "为选中的 sticky card 增加 variant/color 更新控件。",
+            "dependencies": [
+              1
+            ],
+            "details": "使用熟悉控件，例如 segmented buttons 或色板。不要在应用内放大段功能说明文案。",
+            "status": "done",
+            "testStrategy": "选择 sticky card，修改样式，确认卡片即时更新并持久化。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:40:41.014Z"
+          }
+        ],
+        "updatedAt": "2026-06-09T08:40:41.014Z"
+      },
+      {
+        "id": "5",
+        "title": "准备 sticky 背景图片的本地 asset 存储",
+        "description": "为图片型 sticky notes 建立本地资产基础，但不做裁剪/滤镜编辑。",
+        "status": "done",
+        "dependencies": [
+          "4"
+        ],
+        "priority": "medium",
+        "details": "决策是泛化现有 `themeAssets` 表/repository，还是引入中性的 asset model。现有 pattern 保存 Blob、mime type、name、size、createdAt、updatedAt。新增 card background/sticker asset kind 或等价中性模型。添加 service helper，把 image asset 解析为 object URL，并在不需要时释放 URL。只为 sticky cards 解析 `Card.style.backgroundImageId`。上传文件校验保持本地、简单。",
+        "testStrategy": "运行 `npm run build`。上传/保存一个图片 asset，把它通过 `backgroundImageId` 关联到 sticky card，刷新后验证卡片背景可从 IndexedDB 恢复。",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "确定 asset 表策略",
+            "description": "为 card image assets 做一个小型架构决策。",
+            "dependencies": [],
+            "details": "优先复用现有 asset repository pattern，但如果会让 sticky card 与 timeline theme 命名强耦合，就引入更中性的类型。",
+            "status": "done",
+            "testStrategy": "如果模型被泛化，在代码注释或小文档中记录决策。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:46:21.680Z"
+          },
+          {
+            "id": 2,
+            "title": "实现 card image asset 持久化",
+            "description": "保存上传的本地图片 Blob，并返回可被 card style 引用的稳定 id。",
+            "dependencies": [
+              1
+            ],
+            "details": "校验图片 MIME type 和大小。不要添加云上传或外部存储。",
+            "status": "done",
+            "testStrategy": "通过 repository/service 层保存并读取本地图片 Blob。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:46:21.691Z"
+          },
+          {
+            "id": 3,
+            "title": "解析 sticky 背景图片",
+            "description": "通过 `style.backgroundImageId` 渲染 sticky card 背景。",
+            "dependencies": [
+              2
+            ],
+            "details": "使用 object URL 并清理，避免内存泄漏。asset 缺失时优雅回退到非图片 variant。",
+            "status": "done",
+            "testStrategy": "给 sticky 分配背景图片后刷新和切换日期，确认图片仍可显示。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:46:21.694Z"
+          }
+        ],
+        "updatedAt": "2026-06-09T08:46:21.694Z"
+      },
+      {
+        "id": "6",
+        "title": "增加轻量 sticky 图片编辑控制",
+        "description": "在图片上传稳定后，为 sticky cards 增加简单、非破坏性的图片调整元数据。",
+        "status": "done",
+        "dependencies": [
+          "5"
+        ],
+        "priority": "low",
+        "details": "只做 MVP 图片控制：crop/position、scale、rotation、简单滤镜 preset。调整元数据存到 `Card.style` 或嵌套 image style 对象中。避免图层、mask、自由绘制、多对象选择，以及任何会变成完整图片编辑器的能力。UI 应该是 card-specific compact panel，不是通用设计工具。",
+        "testStrategy": "运行 `npm run build`。给 sticky card 分配已上传图片，调整 crop/scale/rotation/filter，刷新后确认元数据持久化且渲染稳定。",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "定义图片调整元数据",
+            "description": "为简单 sticky 图片变换增加类型化元数据。",
+            "dependencies": [],
+            "details": "模型要小、可序列化。优先使用非破坏性的 CSS transform。",
+            "status": "done",
+            "testStrategy": "运行 typecheck，并验证缺少调整元数据时仍使用默认渲染。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:49:50.514Z"
+          },
+          {
+            "id": 2,
+            "title": "实现紧凑图片调整控件",
+            "description": "增加 crop/position、scale、rotate、filter preset 控件。",
+            "dependencies": [
+              1
+            ],
+            "details": "使用简单 slider/select/button。不要引入完整 canvas editor。",
+            "status": "done",
+            "testStrategy": "操作每个控件，确认刷新后的视觉结果仍一致。",
+            "parentId": "undefined",
+            "updatedAt": "2026-06-09T08:49:50.525Z"
+          }
+        ],
+        "updatedAt": "2026-06-09T08:49:50.525Z"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-06-09T08:49:50.525Z",
+      "taskCount": 6,
+      "completedCount": 6,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}

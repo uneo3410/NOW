@@ -126,7 +126,7 @@ export type ThemeAsset = {
   blob: Blob;
   createdAt: ISODateString;
   id: ThemeAssetId;
-  kind: "wallpaper" | "cursor";
+  kind: "wallpaper" | "cursor" | "card-background";
   mimeType: string;
   name: string;
   size: number;

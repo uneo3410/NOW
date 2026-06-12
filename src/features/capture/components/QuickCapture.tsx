@@ -49,7 +49,7 @@ export function QuickCapture({ onCreated }: QuickCaptureProps) {
           className="min-h-28 rounded-3xl text-sm leading-6"
           maxLength={220}
           onChange={(event) => setContent(event.target.value)}
-          placeholder={type === "todo" ? "一件今天想完成的事。" : "一个刚冒出来的想法。"}
+          placeholder={getPlaceholder(type)}
           value={content}
         />
         <Button
@@ -69,4 +69,16 @@ export function QuickCapture({ onCreated }: QuickCaptureProps) {
       ) : null}
     </section>
   );
+}
+
+function getPlaceholder(type: CardType): string {
+  if (type === "todo") {
+    return "一件今天想完成的事。";
+  }
+
+  if (type === "sticky") {
+    return "一张想贴在画布上的便签。";
+  }
+
+  return "一个刚冒出来的想法。";
 }

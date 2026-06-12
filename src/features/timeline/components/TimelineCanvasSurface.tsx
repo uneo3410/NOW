@@ -27,13 +27,27 @@ import { Button } from "../../../components/ui/Button";
 import { Textarea } from "../../../components/ui/Textarea";
 import { CardNode } from "../../canvas/components/CardNode";
 import { useCanvasActions } from "../../canvas/hooks/useCanvasActions";
+import { createCardBackgroundAsset } from "../../cards/services/cardAssetService";
 import {
   deleteCanvasCard,
   deleteCanvasEdge,
   restoreCanvasCard,
   restoreCanvasEdges,
 } from "../../canvas/services/canvasService";
-import type { Card, Edge as CanvasEdge } from "../../cards/types";
+import type {
+  Card,
+  CardImageStyle,
+  CardStyle,
+  CardType,
+  Edge as CanvasEdge,
+} from "../../cards/types";
+import {
+  STICKY_CARD_COLORS,
+  STICKY_CARD_VARIANTS,
+  STICKY_IMAGE_FILTERS,
+  resolveStickyCardStyle,
+  resolveStickyImageStyle,
+} from "../../canvas/components/stickyCardStyles";
 import type { DayWorkspace } from "../../day/types";
 import { useTodoActions } from "../../todo/hooks/useTodoActions";
 import { useViewportKind } from "../../../hooks/useViewportKind";
@@ -80,7 +94,7 @@ type CreationDraft = {
   clientY: number;
   flowPosition: { x: number; y: number };
   initialContent?: string;
-  kind: "timeline" | "todo" | "thought" | "edit-card";
+  kind: "timeline" | "todo" | "thought" | "sticky" | "edit-card";
 };
 
 type LongPressTarget =
@@ -169,6 +183,7 @@ function TimelineCanvasSurfaceInner({
     saveViewport,
     selectedCardId,
     selectedEdgeId,
+    updateCardStyle,
     updateCardContent,
   } = useCanvasActions(workspace);
   const {
@@ -379,7 +394,7 @@ function TimelineCanvasSurfaceInner({
   }
 
   async function createCardWithUndo(
-    input: { content: string; type: "thought" | "todo"; x: number; y: number },
+    input: { content: string; type: CardType; x: number; y: number },
     label: string,
   ) {
     if (!workspace) {
@@ -443,11 +458,11 @@ function TimelineCanvasSurfaceInner({
       await createCardWithUndo(
         {
           content: trimmedContent,
-          type: draft.kind === "todo" ? "todo" : "thought",
+          type: getCreationCardType(draft.kind),
           x: Math.round(draft.flowPosition.x - 128),
           y: Math.round(draft.flowPosition.y - 64),
         },
-        draft.kind === "todo" ? "创建 Todo" : "创建想法卡片",
+        getCreateCardUndoLabel(draft.kind),
       );
     }
 
@@ -575,6 +590,36 @@ function TimelineCanvasSurfaceInner({
 
     clearSelection();
     closeMenu();
+  }
+
+  async function handleUpdateSelectedStickyStyle(patch: Partial<CardStyle>) {
+    if (!selectedCard || selectedCard.type !== "sticky") {
+      return;
+    }
+
+    const nextStyle = {
+      ...resolveStickyCardStyle(selectedCard.style),
+      ...patch,
+    };
+
+    await updateCardStyle(selectedCard.id, nextStyle);
+  }
+
+  async function handleUploadSelectedStickyImage(file: File) {
+    if (!selectedCard || selectedCard.type !== "sticky") {
+      return;
+    }
+
+    try {
+      const asset = await createCardBackgroundAsset(file);
+      await handleUpdateSelectedStickyStyle({
+        backgroundImageId: asset.id,
+        variant: "photo",
+      });
+      showFeedback("已添加便签背景图");
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : "图片上传失败");
+    }
   }
 
   async function handleDeleteTimelineNode(node: TimelineNode) {
@@ -851,14 +896,7 @@ function TimelineCanvasSurfaceInner({
         entryMode={entryMode}
         isApplyingUndo={isApplyingUndo}
         isChromeVisible={isChromeVisible}
-        onCreate={() => {
-          setCreationDraft({
-            clientX: viewportSize.width / 2,
-            clientY: viewportSize.height / 2,
-            flowPosition: getFlowPosition(viewportSize.width / 2, viewportSize.height / 2),
-            kind: "thought",
-          });
-        }}
+        onCreate={() => openBlankMenu(viewportSize.width / 2, viewportSize.height / 2)}
         onDelete={() => void handleDeleteSelected()}
         onFitView={handleFitView}
         onOpenSettings={() => setThemeEditorOpen(true)}
@@ -882,6 +920,7 @@ function TimelineCanvasSurfaceInner({
           onClose={closeMenu}
           onCompleteTodo={() => void handleCompleteSelectedTodo()}
           onCopy={() => void handleCopySelected()}
+          onCreateSticky={() => startCreation("sticky")}
           onCreateThought={() => startCreation("thought")}
           onCreateTimeline={() => startCreation("timeline")}
           onCreateTodo={() => startCreation("todo")}
@@ -904,6 +943,8 @@ function TimelineCanvasSurfaceInner({
             clearSelection();
             closeMenu();
           }}
+          onUploadStickyImage={(file) => void handleUploadSelectedStickyImage(file)}
+          onUpdateStickyStyle={(patch) => void handleUpdateSelectedStickyStyle(patch)}
           selectedCard={selectedCard}
           selectedEdgeId={selectedEdgeId}
         />
@@ -1100,6 +1141,7 @@ function TimelineCanvasContextMenu({
   onClose,
   onCompleteTodo,
   onCopy,
+  onCreateSticky,
   onCreateThought,
   onCreateTimeline,
   onCreateTodo,
@@ -1110,6 +1152,8 @@ function TimelineCanvasContextMenu({
   onPaste,
   onResetView,
   onUnselect,
+  onUploadStickyImage,
+  onUpdateStickyStyle,
   selectedCard,
   selectedEdgeId,
 }: {
@@ -1118,6 +1162,7 @@ function TimelineCanvasContextMenu({
   onClose: () => void;
   onCompleteTodo: () => void;
   onCopy: () => void;
+  onCreateSticky: () => void;
   onCreateThought: () => void;
   onCreateTimeline: () => void;
   onCreateTodo: () => void;
@@ -1128,6 +1173,8 @@ function TimelineCanvasContextMenu({
   onPaste: () => void;
   onResetView: () => void;
   onUnselect: () => void;
+  onUploadStickyImage: (file: File) => void;
+  onUpdateStickyStyle: (patch: Partial<CardStyle>) => void;
   selectedCard?: Card;
   selectedEdgeId: EdgeId | null;
 }) {
@@ -1147,7 +1194,8 @@ function TimelineCanvasContextMenu({
     : [
         { icon: "schedule", label: "时间卡片", onClick: onCreateTimeline },
         { icon: "checklist", label: "Todo", onClick: onCreateTodo },
-        { icon: "sticky_note_2", label: "想法卡片", onClick: onCreateThought },
+        { icon: "sticky_note_2", label: "便签", onClick: onCreateSticky },
+        { icon: "lightbulb", label: "想法卡片", onClick: onCreateThought },
         { icon: "content_paste", label: "粘贴", onClick: onPaste },
         { icon: "center_focus_strong", label: "适应视图", onClick: onFitView },
         { icon: "restart_alt", label: "重置缩放", onClick: onResetView },
@@ -1171,6 +1219,13 @@ function TimelineCanvasContextMenu({
               <ContextActionButton key={action.label} {...action} />
             ))}
           </div>
+          {selectedCard?.type === "sticky" ? (
+            <StickyStyleControls
+              card={selectedCard}
+              onUpdateStyle={onUpdateStickyStyle}
+              onUploadImage={onUploadStickyImage}
+            />
+          ) : null}
         </div>
       </div>
     );
@@ -1188,7 +1243,224 @@ function TimelineCanvasContextMenu({
           <ContextActionButton key={action.label} {...action} />
         ))}
       </div>
+      {selectedCard?.type === "sticky" ? (
+        <StickyStyleControls
+          card={selectedCard}
+          onUpdateStyle={onUpdateStickyStyle}
+          onUploadImage={onUploadStickyImage}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function StickyStyleControls({
+  card,
+  onUploadImage,
+  onUpdateStyle,
+}: {
+  card: Card;
+  onUploadImage: (file: File) => void;
+  onUpdateStyle: (patch: Partial<CardStyle>) => void;
+}) {
+  const cardStyle = resolveStickyCardStyle(card.style);
+  const imageStyle = resolveStickyImageStyle(cardStyle.image);
+
+  function updateImageStyle(patch: Partial<CardImageStyle>) {
+    onUpdateStyle({
+      image: {
+        ...imageStyle,
+        ...patch,
+      },
+    });
+  }
+
+  return (
+    <div className="mt-2 border-t border-white/65 pt-2">
+      <div className="grid grid-cols-2 gap-1">
+        {STICKY_CARD_VARIANTS.map((variant) => {
+          const isSelected = cardStyle.variant === variant.value;
+
+          return (
+            <button
+              aria-label={`便签样式：${variant.label}`}
+              aria-pressed={isSelected}
+              className={[
+                "flex min-h-10 items-center gap-2 rounded-xl px-3 text-left text-xs font-semibold transition",
+                isSelected ? "bg-ink text-surface shadow-soft" : "text-muted hover:bg-white/[0.72] hover:text-ink",
+              ].join(" ")}
+              key={variant.value}
+              onClick={() => onUpdateStyle({ variant: variant.value })}
+              title={variant.label}
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[18px]">{variant.icon}</span>
+              <span>{variant.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {STICKY_CARD_COLORS.map((color) => {
+          const isSelected = color.value
+            ? cardStyle.color === color.value
+            : !cardStyle.color;
+
+          return (
+            <button
+              aria-label={`便签颜色：${color.label}`}
+              aria-pressed={isSelected}
+              className={[
+                "grid size-8 place-items-center rounded-full border transition hover:scale-105",
+                isSelected ? "border-ink shadow-soft" : "border-white/70",
+              ].join(" ")}
+              key={color.label}
+              onClick={() => onUpdateStyle({ color: color.value })}
+              title={color.label}
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                className="size-5 rounded-full border border-black/10"
+                style={{ backgroundColor: color.value ?? "#ffffff" }}
+              />
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-1">
+        <label
+          className="flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-3 text-xs font-semibold text-muted transition hover:bg-white/[0.72] hover:text-ink"
+          title="上传背景图"
+        >
+          <span className="material-symbols-outlined text-[18px]">add_photo_alternate</span>
+          <span>图片</span>
+          <input
+            accept="image/*"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+
+              if (file) {
+                onUploadImage(file);
+              }
+            }}
+            type="file"
+          />
+        </label>
+        <button
+          className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-muted transition hover:bg-white/[0.72] hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!cardStyle.backgroundImageId}
+          onClick={() => onUpdateStyle({ backgroundImageId: undefined, image: undefined })}
+          title="移除背景图"
+          type="button"
+        >
+          <span className="material-symbols-outlined text-[18px]">hide_image</span>
+          <span>移除</span>
+        </button>
+      </div>
+      {cardStyle.backgroundImageId ? (
+        <StickyImageAdjustmentControls imageStyle={imageStyle} onChange={updateImageStyle} />
+      ) : null}
+    </div>
+  );
+}
+
+function StickyImageAdjustmentControls({
+  imageStyle,
+  onChange,
+}: {
+  imageStyle: Required<CardImageStyle>;
+  onChange: (patch: Partial<CardImageStyle>) => void;
+}) {
+  return (
+    <div className="mt-2 space-y-2 rounded-xl bg-white/[0.46] p-2">
+      <div className="grid grid-cols-2 gap-2">
+        <RangeControl
+          label="X"
+          max={100}
+          min={0}
+          onChange={(x) => onChange({ x })}
+          value={imageStyle.x}
+        />
+        <RangeControl
+          label="Y"
+          max={100}
+          min={0}
+          onChange={(y) => onChange({ y })}
+          value={imageStyle.y}
+        />
+        <RangeControl
+          label="缩放"
+          max={2}
+          min={1}
+          onChange={(scale) => onChange({ scale })}
+          step={0.05}
+          value={imageStyle.scale}
+        />
+        <RangeControl
+          label="旋转"
+          max={12}
+          min={-12}
+          onChange={(rotate) => onChange({ rotate })}
+          step={1}
+          value={imageStyle.rotate}
+        />
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {STICKY_IMAGE_FILTERS.map((filter) => {
+          const isSelected = imageStyle.filter === filter.value;
+
+          return (
+            <button
+              aria-label={`图片滤镜：${filter.label}`}
+              aria-pressed={isSelected}
+              className={[
+                "min-h-8 rounded-lg px-2 text-[11px] font-semibold transition",
+                isSelected ? "bg-ink text-surface shadow-soft" : "text-muted hover:bg-white/[0.72] hover:text-ink",
+              ].join(" ")}
+              key={filter.value}
+              onClick={() => onChange({ filter: filter.value })}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RangeControl({
+  label,
+  max,
+  min,
+  onChange,
+  step = 1,
+  value,
+}: {
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  step?: number;
+  value: number;
+}) {
+  return (
+    <label className="block min-w-0">
+      <span className="mb-1 block text-[10px] font-semibold uppercase text-muted">{label}</span>
+      <input
+        className="block h-2 w-full accent-primary"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(Number(event.target.value))}
+        step={step}
+        type="range"
+        value={value}
+      />
+    </label>
   );
 }
 
@@ -1962,6 +2234,10 @@ function getComposerTitle(kind: CreationDraft["kind"]) {
     return "Todo";
   }
 
+  if (kind === "sticky") {
+    return "便签";
+  }
+
   if (kind === "edit-card") {
     return "编辑卡片";
   }
@@ -1978,11 +2254,39 @@ function getComposerPlaceholder(kind: CreationDraft["kind"]) {
     return "写下一件想完成的事。";
   }
 
+  if (kind === "sticky") {
+    return "写下一张贴在画布上的便签。";
+  }
+
   if (kind === "edit-card") {
     return "更新这张卡片。";
   }
 
   return "写下一个想法、灵感或备注。";
+}
+
+function getCreationCardType(kind: CreationDraft["kind"]): CardType {
+  if (kind === "todo") {
+    return "todo";
+  }
+
+  if (kind === "sticky") {
+    return "sticky";
+  }
+
+  return "thought";
+}
+
+function getCreateCardUndoLabel(kind: CreationDraft["kind"]): string {
+  if (kind === "todo") {
+    return "创建 Todo";
+  }
+
+  if (kind === "sticky") {
+    return "创建便签";
+  }
+
+  return "创建想法卡片";
 }
 
 function isInteractiveSurfaceTarget(target: EventTarget) {

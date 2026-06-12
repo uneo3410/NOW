@@ -1,0 +1,104 @@
+# 产品需求文档：Sticky Note 卡片类型
+
+## 1. 概览
+- 产品：Now Timeline
+- 功能：Card Type 扩展 - Sticky Note
+- 负责人：本地产品/开发
+- 更新时间：2026-06-09
+- 版本：0.1
+
+Now Timeline 当前已经有持续存在的视觉画布，用于承载 thought cards、todo cards、edges，以及按日期切换的时间线层。下一阶段要新增一个卡片类型：`sticky`。
+
+Sticky Note 不是普通 thought card。它更像贴在画布上的视觉材料，可以承载便签、剪贴、视觉提示、轻量 moodboard 材料，后续再支持图片背景和图片贴图。
+
+## 2. 目标
+- 主要目标：新增 `sticky` card type，让便签在画布上呈现为更视觉化的材料。
+- 次要目标：为 Card model 预留视觉样式和未来 assets 能力，但不要过早做完整图片编辑器。
+- MVP 不做：完整裁剪/滤镜编辑器、Figma 式 inspector、多图层图片组合、云上传、账号同步。
+
+## 3. 当前架构
+- 技术栈：Vite + React + TypeScript + Tailwind CSS。
+- 画布引擎：`@xyflow/react`。
+- 本地持久化：Dexie / IndexedDB。
+- 状态管理：按领域拆分的 Zustand stores。
+- 当前入口：`src/pages/TimelinePage.tsx` -> `useCurrentDay()` -> `useDayWorkspace()` -> `TimelineCanvasSurface`。
+- 当前全局画布 service：`src/features/canvas/services/canvasService.ts`。
+- 当前 Card model：`src/features/cards/types.ts`。
+- 当前卡片渲染：`src/features/canvas/components/CardNode.tsx`、`ThoughtCardNode.tsx`、`TodoCardNode.tsx`。
+- 当前创建入口：`CardEditor`、`QuickCapture`、`TimelineCanvasSurface` context menu/composer。
+- 已有图片资产模式：`themeAssets` 表和 `themeAssetRepository`，目前用于时间线主题壁纸/光标。
+
+## 4. 功能需求
+
+### 核心需求
+- 保持 canvas cards、edges、viewport 全局持久。
+- 保持 timeline nodes 按选中日期隔离。
+- 将 `CardType` 从 `"thought" | "todo"` 扩展为 `"thought" | "todo" | "sticky"`。
+- 为 Card 增加可选 style 字段：
+  ```ts
+  type Card = {
+    type: "thought" | "todo" | "sticky";
+    content: string;
+    style?: {
+      variant: "paper" | "glass" | "photo" | "tape";
+      color?: string;
+      backgroundImageId?: string;
+    };
+  };
+  ```
+- Sticky MVP 支持创建、渲染、编辑文字、删除、拖拽、连线、撤销/重做和持久化。
+- Sticky MVP 支持视觉 variant 和颜色选择，但不做图片编辑。
+- 图片上传和图片编辑必须作为后续任务，不能塞进 sticky 文本/样式 MVP。
+
+### 边界情况
+- 现有 thought/todo cards 没有 `style` 时继续正常渲染。
+- 现有 IndexedDB 记录不应要求破坏性 migration。
+- Sticky cards 不参与 todo 完成流程。
+- 删除 sticky card 时必须删除全局关联 edges。
+- 切换日期不能隐藏 sticky cards。
+- 刷新应用后 sticky cards 和样式必须保留。
+
+## 5. 非功能需求
+- 性能：Sticky 渲染继续基于 React Flow node，MVP 不做昂贵图片处理。
+- 可靠性：数据变更必须走 service/repository 层，UI 不直接写 Dexie。
+- 可访问性：创建控件保持键盘和屏幕阅读器可用。
+- 可维护性：卡片类型渲染放在各自 feature component 中，避免把所有逻辑塞进一个超大 node 组件。
+
+## 6. 发布计划
+
+### Milestone 1：持久化边界确认
+- 范围：验证全局画布持久化和按日期时间线行为。
+- 验收：Phase 7 手动验收通过。
+
+### Milestone 2：Card model 扩展
+- 范围：增加 `sticky`、`style` 和 asset-ready 字段。
+- 验收：typecheck/build 通过，旧记录不需要改动也能渲染。
+
+### Milestone 3：Sticky Note UI MVP
+- 范围：用默认视觉样式创建和渲染 sticky notes。
+- 验收：Sticky cards 可从画布控件和右键菜单创建，并可持久化、编辑、移动、连线、删除。
+
+### Milestone 4：样式控制
+- 范围：为 sticky cards 增加 variant/color 控制。
+- 验收：用户可以切换 sticky variant 和颜色，设置会持久化。
+
+### Milestone 5：图片资产基础
+- 范围：复用或泛化本地 asset 存储，支持 sticky 背景图片。
+- 验收：上传图片可通过 asset id 关联为 sticky 背景。
+
+### Milestone 6：轻量图片编辑
+- 范围：只做 crop/scale/rotate/filter 元数据，不做完整编辑器。
+- 验收：选中的 sticky 图片可用简单非破坏性控制调整。
+
+## 7. 风险与缓解
+- 风险：图片编辑扩展成小型 Figma。
+  - 缓解：图片上传/编辑拆成后续任务；先交付文本和样式型 sticky notes。
+- 风险：Card model 改动破坏 thought/todo。
+  - 缓解：只增加可选 style 字段，旧 Card 默认仍有效。
+- 风险：画布再次被改回 day-scoped。
+  - 缓解：保持 `canvasService` 的全局 load/delete 语义，并用日期切换验收。
+
+## 8. 待定问题
+- 图片是否复用 `themeAssets` 并扩展 `ThemeAsset["kind"]`，还是新增中性 `assets` 表？
+- Sticky 样式编辑放在 context composer、selected-card inspector，还是紧凑浮层？
+- 字体 variant 是否进入 MVP，还是等 variant/color 控制之后再做？

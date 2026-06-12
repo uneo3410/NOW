@@ -37,7 +37,7 @@ export function CardEditor({ onCreate }: CardEditorProps) {
         className="min-h-24 rounded-3xl text-sm leading-6"
         maxLength={220}
         onChange={(event) => setContent(event.target.value)}
-        placeholder={type === "todo" ? "写下一件想完成的事。" : "写下一个想法、灵感或备注。"}
+        placeholder={getPlaceholder(type)}
         value={content}
       />
       <Button className="w-full" disabled={isSubmitting || !content.trim()} type="submit">
@@ -45,4 +45,16 @@ export function CardEditor({ onCreate }: CardEditorProps) {
       </Button>
     </form>
   );
+}
+
+function getPlaceholder(type: CardType): string {
+  if (type === "todo") {
+    return "写下一件想完成的事。";
+  }
+
+  if (type === "sticky") {
+    return "写下一张贴在画布上的便签。";
+  }
+
+  return "写下一个想法、灵感或备注。";
 }

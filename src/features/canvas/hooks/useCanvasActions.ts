@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { OnConnect, OnEdgesDelete, OnNodesDelete, OnSelectionChangeFunc } from "@xyflow/react";
-import type { Card, CreateCardInput } from "../../cards/types";
+import type { Card, CardStyle, CreateCardInput } from "../../cards/types";
 import type { DayWorkspace } from "../../day/types";
 import type { CardId, EdgeId } from "../../../types/id";
 import { useCanvasStore } from "../../../stores/canvasStore";
@@ -14,6 +14,7 @@ import {
   loadGlobalCanvas,
   saveGlobalCanvasViewport,
   updateCanvasCardContent,
+  updateCanvasCardStyle,
   updateCardPosition,
 } from "../services/canvasService";
 import type { CanvasPosition, CanvasViewport } from "../types";
@@ -103,6 +104,16 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
 
       setError(null);
       const card = await updateCanvasCardContent(cardId, nextContent);
+      updateCard(cardId, card);
+      return card;
+    },
+    [setError, updateCard],
+  );
+
+  const updateCardStyle = useCallback(
+    async (cardId: CardId, style: CardStyle) => {
+      setError(null);
+      const card = await updateCanvasCardStyle(cardId, style);
       updateCard(cardId, card);
       return card;
     },
@@ -232,6 +243,7 @@ export function useCanvasActions(workspace: DayWorkspace | null) {
     selectedCardId,
     selectedEdgeId,
     saveViewport,
+    updateCardStyle,
     updateCardContent,
     viewport,
   };

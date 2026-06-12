@@ -37,6 +37,7 @@ export async function createCard(input: CreateCardInput, workspace: DayWorkspace
     date: workspace.date,
     type: input.type,
     content: input.content.trim(),
+    style: input.style,
     x: input.x ?? 0,
     y: input.y ?? 0,
     createdAt: timestamp,

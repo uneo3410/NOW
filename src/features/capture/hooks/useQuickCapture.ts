@@ -43,7 +43,7 @@ export function useQuickCapture() {
       );
 
       setCreatedCount((count) => count + 1);
-      setFeedback(type === "todo" ? "已放进今日 Todo" : "已放进今日画布");
+      setFeedback(getFeedback(type));
       window.setTimeout(() => setFeedback(null), 1800);
       return card;
     },
@@ -58,4 +58,16 @@ export function useQuickCapture() {
     isLoading,
     workspace,
   };
+}
+
+function getFeedback(type: CardType): string {
+  if (type === "todo") {
+    return "已放进今日 Todo";
+  }
+
+  if (type === "sticky") {
+    return "已贴到今日画布";
+  }
+
+  return "已放进今日画布";
 }

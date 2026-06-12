@@ -1,8 +1,27 @@
 import type { ISODateString } from "../../types/common";
-import type { CardId, DayWorkspaceId, EdgeId } from "../../types/id";
+import type { CardAssetId, CardId, DayWorkspaceId, EdgeId } from "../../types/id";
 import type { LocalDateString } from "../day/types";
 
-export type CardType = "thought" | "todo";
+export type CardType = "thought" | "todo" | "sticky";
+
+export type CardStyleVariant = "paper" | "glass" | "photo" | "tape";
+
+export type CardImageFilter = "none" | "soft" | "mono" | "warm";
+
+export type CardImageStyle = {
+  filter?: CardImageFilter;
+  rotate?: number;
+  scale?: number;
+  x?: number;
+  y?: number;
+};
+
+export type CardStyle = {
+  variant: CardStyleVariant;
+  color?: string;
+  backgroundImageId?: CardAssetId;
+  image?: CardImageStyle;
+};
 
 export type Card = {
   id: CardId;
@@ -10,6 +29,7 @@ export type Card = {
   date: LocalDateString;
   type: CardType;
   content: string;
+  style?: CardStyle;
   x: number;
   y: number;
   createdAt: ISODateString;
@@ -32,6 +52,7 @@ export type Edge = {
 export type CreateCardInput = {
   type: CardType;
   content: string;
+  style?: CardStyle;
   x?: number;
   y?: number;
 };

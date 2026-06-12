@@ -1,6 +1,7 @@
 export type EntityId = string;
 
 export type CardId = EntityId;
+export type CardAssetId = EntityId;
 export type DayWorkspaceId = EntityId;
 export type EdgeId = EntityId;
 export type TimelineNodeId = EntityId;

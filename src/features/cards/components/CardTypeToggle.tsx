@@ -8,11 +8,12 @@ type CardTypeToggleProps = {
 const options: Array<{ label: string; value: CardType }> = [
   { label: "想法", value: "thought" },
   { label: "Todo", value: "todo" },
+  { label: "便签", value: "sticky" },
 ];
 
 export function CardTypeToggle({ onChange, value }: CardTypeToggleProps) {
   return (
-    <div className="grid grid-cols-2 rounded-full border border-line bg-white/50 p-1">
+    <div className="grid grid-cols-3 rounded-full border border-line bg-white/50 p-1">
       {options.map((option) => (
         <button
           className={[
